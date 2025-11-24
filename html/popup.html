@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prompt Manager</title>
+    <link rel="stylesheet" href="../css/popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup-header">
+        <div>
+          <p class="eyebrow">Prompt Manager</p>
+          <h1>Quick Picks</h1>
+        </div>
+        <button id="open-options" class="link-btn">All</button>
+      </header>
+      <div class="search-wrap">
+        <input id="popup-search" type="search" placeholder="Search prompts..." />
+      </div>
+      <div id="tab-bar" class="tab-bar" role="tablist" aria-label="Folders"></div>
+      <div id="prompt-list" class="prompt-list" aria-live="polite"></div>
+      <p id="toast" class="toast" role="status" aria-live="polite"></p>
+    </main>
+    <script type="module" src="../js/popup.js"></script>
+  </body>
+</html>

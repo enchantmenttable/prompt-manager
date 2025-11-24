@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prompt Manager</title>
+    <link rel="stylesheet" href="../css/options.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"></div>
+          <div class="brand-text">MONOPROMPT</div>
+        </div>
+        <button class="nav-item active" data-id="all">
+          <span>All Prompts</span>
+        </button>
+        <div class="section-label">Folders</div>
+        <div id="folder-list" class="folder-list" aria-label="Folders"></div>
+        <button id="add-folder" class="nav-item dashed">+ New Folder</button>
+        <div class="version">v1.0.0</div>
+      </aside>
+      <section class="main">
+        <header class="topbar">
+          <h1 id="view-title">All Prompts</h1>
+          <button id="new-prompt" class="primary">+ New</button>
+        </header>
+        <div class="toolbar">
+          <label class="search">
+            <input id="search" type="search" placeholder="Search prompts..." />
+          </label>
+        </div>
+        <div id="prompt-grid" class="prompt-grid" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="prompt-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-sheet">
+        <header class="modal-header">
+          <h2 id="modal-title">New Prompt</h2>
+          <button id="close-modal" class="ghost" aria-label="Close form">X</button>
+        </header>
+        <form id="prompt-form" class="modal-body">
+          <label class="field">
+            <span>Title (optional)</span>
+            <input id="prompt-title" name="title" maxlength="160" />
+          </label>
+          <label class="field">
+            <span>Content</span>
+            <textarea
+              id="prompt-content"
+              name="content"
+              rows="6"
+              placeholder="Write the prompt..."
+              required
+            ></textarea>
+          </label>
+          <label class="field">
+            <span>Folder</span>
+            <select id="prompt-folder" name="folder"></select>
+          </label>
+          <div class="modal-actions">
+            <button type="button" id="delete-prompt" class="danger ghost hidden">
+              Delete
+            </button>
+            <div class="spacer"></div>
+            <button type="button" id="cancel-modal" class="ghost">Cancel</button>
+            <button type="submit" class="primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="folder-confirm" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-sheet confirm-sheet">
+        <div class="modal-body confirm-body">
+          <h3>Delete folder?</h3>
+          <p>All prompts within this folder will be permanently deleted.</p>
+          <div class="modal-actions confirm-actions">
+            <button type="button" id="cancel-folder-delete" class="ghost">Cancel</button>
+            <button type="button" id="confirm-folder-delete" class="danger">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="../js/options.js"></script>
+  </body>
+</html>
