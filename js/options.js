@@ -6,6 +6,18 @@ let editingPromptId = null;
 let initialPromptSnapshot = null;
 let pendingFolderDelete = null;
 let draggingPromptId = null;
+let draggingFolderId = null;
+let draggingFolderEl = null;
+let folderPlaceholder = null;
+let folderDragOffsetY = 0;
+let folderDragMoved = false;
+let folderPointerId = null;
+let folderDragStartX = 0;
+let folderDragStartY = 0;
+let folderDragActive = false;
+let lastFolderHoverId = null;
+let lastFolderHoverBefore = null;
+let editorSnapshot = null;
 
 const folderList = document.getElementById("folder-list");
 const promptGrid = document.getElementById("prompt-grid");
@@ -28,18 +40,42 @@ const cancelModal = document.getElementById("cancel-modal");
 const closeModal = document.getElementById("close-modal");
 const deletePromptButton = document.getElementById("delete-prompt");
 const savePromptButton = promptForm.querySelector('button[type="submit"]');
+const mainContainer = document.querySelector(".main");
+const listView = document.getElementById("list-view");
+const editorView = document.getElementById("editor-view");
+const editorBack = document.getElementById("editor-back");
+const editorForm = document.getElementById("editor-form");
+const editorTitleInput = document.getElementById("editor-prompt-title");
+const editorContentInput = document.getElementById("editor-prompt-content");
+const editorFolderSelect = document.getElementById("editor-prompt-folder");
+const editorSaveButton = document.getElementById("editor-save");
+const editorDeleteButton = document.getElementById("editor-delete");
+const editorCopyButton = document.getElementById("editor-copy");
+const editorHeading = document.querySelector(".editor-title");
 
 async function init() {
   state = await loadState();
   normalizePromptOrder();
+  normalizeFolderOrder();
   renderFolders();
   renderPrompts();
   bindEvents();
 }
 
+function getOrderedFolders() {
+  return state.folders
+    .filter((f) => f.id !== "all")
+    .sort((a, b) => {
+      const orderA = Number.isFinite(a.order) ? a.order : 0;
+      const orderB = Number.isFinite(b.order) ? b.order : 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 function bindEvents() {
   searchInput.addEventListener("input", () => renderPrompts());
-  addFolderButton.addEventListener("click", handleAddFolder);
+  addFolderButton.addEventListener("click", handleAddFolderButton);
   navAllButton.addEventListener("click", () => {
     currentFolderId = "all";
     setActiveNav();
@@ -62,6 +98,13 @@ function bindEvents() {
   promptGrid.addEventListener("dragleave", handleDragLeave);
   promptGrid.addEventListener("drop", handleDrop);
   promptGrid.addEventListener("dragend", handleDragEnd);
+  folderList.addEventListener("pointerdown", handleFolderPointerDown);
+  editorBack?.addEventListener("click", closeEditorView);
+  editorForm?.addEventListener("input", updateEditorSaveState);
+  editorForm?.addEventListener("change", updateEditorSaveState);
+  editorSaveButton?.addEventListener("click", handleEditorSave);
+  editorDeleteButton?.addEventListener("click", handleEditorDelete);
+  editorCopyButton?.addEventListener("click", handleEditorCopy);
 }
 
 function handleCardActions(event) {
@@ -77,7 +120,7 @@ function handleCardActions(event) {
   if (!card) return;
   const id = card.getAttribute("data-id");
   const prompt = state.prompts.find((item) => item.id === id);
-  if (prompt) openPromptModal(prompt);
+  if (prompt) openEditorView(prompt);
 }
 
 function handleDragStart(event) {
@@ -128,19 +171,294 @@ function reorderPrompts(fromId, toId) {
   saveState(state);
 }
 
+function handleAddFolderButton() {
+  if (folderDragActive) return;
+  showAddFolderForm();
+}
+
+function showAddFolderForm() {
+  if (document.querySelector(".add-folder-panel")) return;
+  const panel = document.createElement("div");
+  panel.className = "add-folder-panel";
+  panel.innerHTML = `
+    <input class="add-folder-input" type="text" placeholder="Folder Name" maxlength="120" />
+    <div class="add-folder-actions">
+      <button type="button" class="add-folder-submit">Add</button>
+      <button type="button" class="add-folder-cancel ghost">Cancel</button>
+    </div>
+  `;
+  addFolderButton.classList.add("hidden");
+  addFolderButton.insertAdjacentElement("afterend", panel);
+
+  const input = panel.querySelector(".add-folder-input");
+  const submitBtn = panel.querySelector(".add-folder-submit");
+  const cancelBtn = panel.querySelector(".add-folder-cancel");
+
+  const submit = () => {
+    const name = input.value.trim();
+    if (!name) return;
+    createFolder(name);
+    hideAddFolderForm();
+  };
+
+  submitBtn?.addEventListener("click", submit);
+  cancelBtn?.addEventListener("click", hideAddFolderForm);
+  input?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      hideAddFolderForm();
+    }
+  });
+
+  input?.focus();
+}
+
+function hideAddFolderForm() {
+  const panel = document.querySelector(".add-folder-panel");
+  if (panel) panel.remove();
+  addFolderButton.classList.remove("hidden");
+}
+
+function createFolder(name) {
+  const exists = state.folders.some((folder) => folder.name.toLowerCase() === name.toLowerCase());
+  if (exists) return;
+  const id = makeId("folder");
+  const nextOrder = state.folders.filter((f) => f.id !== "all").length;
+  state.folders.push({ id, name, locked: false, order: nextOrder });
+  currentFolderId = id;
+  saveState(state);
+  renderFolders();
+  renderPrompts();
+}
+
+function handleFolderPointerDown(event) {
+  if (event.button !== 0) return;
+  if (!(event.target instanceof HTMLElement)) return;
+  const folder = event.target.closest(".folder");
+  if (!folder || folder.querySelector("[data-folder-delete]")?.contains(event.target)) return;
+  draggingFolderId = folder.dataset.id;
+  draggingFolderEl = folder;
+  folderDragMoved = false;
+  folderDragStartX = event.clientX;
+  folderDragStartY = event.clientY;
+  folderPointerId = null;
+  folderDragActive = false;
+  lastFolderHoverId = null;
+  lastFolderHoverBefore = null;
+
+  window.addEventListener("pointermove", handleFolderPointerMove);
+  window.addEventListener("pointerup", handleFolderPointerUp);
+}
+
+function handleFolderPointerMove(event) {
+  if (!draggingFolderId || !draggingFolderEl) return;
+  const deltaX = Math.abs(event.clientX - folderDragStartX);
+  const deltaY = Math.abs(event.clientY - folderDragStartY);
+  if (!folderDragActive && deltaX < 3 && deltaY < 3) return;
+  if (!folderDragActive) {
+    beginFolderDrag(event);
+  }
+  const listRect = folderList.getBoundingClientRect();
+  const newTop = event.clientY - listRect.top + folderList.scrollTop - folderDragOffsetY;
+  draggingFolderEl.style.top = `${newTop}px`;
+
+  if (!folderDragMoved && (deltaX >= 3 || deltaY >= 3)) {
+    folderDragMoved = true;
+  }
+  folderDragMoved = true;
+  updateFolderPlaceholder(event);
+}
+
+function handleFolderPointerUp() {
+  if (!draggingFolderId) return;
+  const slots = Array.from(folderList.querySelectorAll(".folder")).filter(
+    (el) => el !== draggingFolderEl
+  );
+  const orderedIds = slots.map((el) =>
+    el === folderPlaceholder ? draggingFolderId : el.dataset.id
+  );
+  restoreDraggedFolder();
+  if (folderDragActive && folderDragMoved && orderedIds.length) {
+    applyFolderOrderFromIds(orderedIds);
+    renderFolders();
+    renderPrompts();
+  }
+  window.removeEventListener("pointermove", handleFolderPointerMove);
+  window.removeEventListener("pointerup", handleFolderPointerUp);
+  draggingFolderId = null;
+  draggingFolderEl = null;
+  folderDragMoved = false;
+  folderDragActive = false;
+  lastFolderHoverId = null;
+  lastFolderHoverBefore = null;
+}
+
+function ensureFolderPlaceholder(height) {
+  if (!folderPlaceholder) {
+    folderPlaceholder = document.createElement("div");
+    folderPlaceholder.className = "folder placeholder";
+  }
+  folderPlaceholder.style.height = `${height}px`;
+}
+
+function captureFolderPositions() {
+  const positions = new Map();
+  folderList.querySelectorAll(".folder").forEach((el) => {
+    if (el === draggingFolderEl || el === folderPlaceholder) return;
+    positions.set(el.dataset.id, el.getBoundingClientRect());
+  });
+  return positions;
+}
+
+function playFlipAnimation(firstPositions) {
+  folderList.querySelectorAll(".folder").forEach((el) => {
+    if (el === draggingFolderEl || el === folderPlaceholder) return;
+    const first = firstPositions.get(el.dataset.id);
+    if (!first) return;
+    const last = el.getBoundingClientRect();
+    const dy = first.top - last.top;
+    if (!dy) return;
+    el.style.transition = "none";
+    el.style.transform = `translateY(${dy}px)`;
+    requestAnimationFrame(() => {
+      el.style.transition = "transform 240ms ease-out";
+      el.style.transform = "translateY(0)";
+      setTimeout(() => {
+        el.style.transition = "";
+        el.style.transform = "";
+      }, 260);
+    });
+  });
+}
+
+function updateFolderPlaceholder(event) {
+  if (!folderPlaceholder || !draggingFolderEl) return;
+  const target = getFolderFromPoint(event.clientX, event.clientY);
+  if (!target || target === folderPlaceholder || target.dataset.id === draggingFolderId) return;
+  const targetRect = target.getBoundingClientRect();
+  const y = event.clientY;
+  const upper = targetRect.top + targetRect.height * 0.35;
+  const lower = targetRect.top + targetRect.height * 0.65;
+  const currentIndex = Array.from(folderList.querySelectorAll(".folder")).indexOf(
+    folderPlaceholder
+  );
+  let before = null;
+  if (y < upper) before = true;
+  else if (y > lower) before = false;
+
+  const targetId = target.dataset.id;
+  if (targetId === lastFolderHoverId && before === lastFolderHoverBefore) return;
+  lastFolderHoverId = targetId;
+  lastFolderHoverBefore = before;
+
+  const slots = Array.from(folderList.querySelectorAll(".folder")).filter(
+    (el) => el !== draggingFolderEl && el !== folderPlaceholder
+  );
+  const targetIndex = slots.indexOf(target);
+  let desiredIndex = currentIndex;
+  if (before === true) desiredIndex = targetIndex;
+  else if (before === false) desiredIndex = targetIndex + 1;
+  if (desiredIndex === -1) desiredIndex = slots.length;
+  if (desiredIndex === currentIndex) return;
+
+  const firstPositions = captureFolderPositions();
+  const insertBefore = slots[desiredIndex] || null;
+  folderList.insertBefore(folderPlaceholder, insertBefore);
+  playFlipAnimation(firstPositions);
+}
+
+function restoreDraggedFolder() {
+  if (!draggingFolderEl) return;
+  if (folderPlaceholder && folderList.contains(folderPlaceholder)) {
+    folderList.insertBefore(draggingFolderEl, folderPlaceholder);
+    folderPlaceholder.remove();
+    folderPlaceholder = null;
+  } else if (!folderList.contains(draggingFolderEl)) {
+    folderList.appendChild(draggingFolderEl);
+  }
+  draggingFolderEl.classList.remove("dragging");
+  draggingFolderEl.style.position = "";
+  draggingFolderEl.style.top = "";
+  draggingFolderEl.style.left = "";
+  draggingFolderEl.style.width = "";
+  draggingFolderEl.style.zIndex = "";
+  draggingFolderEl.style.pointerEvents = "";
+  try {
+    if (folderPointerId != null) {
+      draggingFolderEl.releasePointerCapture?.(folderPointerId);
+    }
+  } catch (err) {
+    // ignore release issues
+  }
+  folderPointerId = null;
+}
+
+function getFolderFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!(el instanceof HTMLElement)) return null;
+  const folder = el.closest(".folder");
+  if (folder && folderList.contains(folder)) return folder;
+  return null;
+}
+
+function beginFolderDrag(event) {
+  if (!draggingFolderEl) return;
+  folderDragActive = true;
+  folderPointerId = event.pointerId;
+  const folderRect = draggingFolderEl.getBoundingClientRect();
+  const listRect = folderList.getBoundingClientRect();
+  folderDragOffsetY = event.clientY - folderRect.top;
+  ensureFolderPlaceholder(folderRect.height);
+  if (folderPlaceholder && draggingFolderEl.parentNode === folderList) {
+    folderList.insertBefore(folderPlaceholder, draggingFolderEl);
+  }
+  draggingFolderEl.classList.add("dragging");
+  draggingFolderEl.style.width = `${folderRect.width}px`;
+  draggingFolderEl.style.left = `${folderRect.left - listRect.left}px`;
+  draggingFolderEl.style.top = `${folderRect.top - listRect.top + folderList.scrollTop}px`;
+  draggingFolderEl.style.position = "absolute";
+  draggingFolderEl.style.zIndex = "3";
+  draggingFolderEl.style.pointerEvents = "none";
+  draggingFolderEl.setPointerCapture?.(event.pointerId);
+}
+
+function applyFolderOrderFromIds(ids) {
+  const map = new Map(
+    state.folders.filter((f) => f.id !== "all").map((folder) => [folder.id, folder])
+  );
+  const ordered = ids.map((id) => map.get(id)).filter(Boolean);
+  ordered.forEach((folder, index) => {
+    folder.order = index;
+  });
+  const allFolder = state.folders.find((f) => f.id === "all");
+  state.folders = allFolder ? [allFolder, ...ordered] : ordered;
+  saveState(state);
+}
+
+function clearFolderDragIndicators() {
+  folderList.querySelectorAll(".folder").forEach((btn) => {
+    btn.classList.remove("drag-over", "shift-up", "shift-down");
+  });
+}
+
 function renderFolders() {
   folderList.innerHTML = "";
-  const folders = state.folders
-    .filter((f) => f.id !== "all")
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const folders = getOrderedFolders();
 
   folders.forEach((folder) => {
-    const button = document.createElement("button");
+    const button = document.createElement("div");
     button.className = `folder${folder.id === currentFolderId ? " active" : ""}`;
     button.dataset.id = folder.id;
+    button.setAttribute("role", "button");
+    button.setAttribute("tabindex", "0");
+    button.setAttribute("draggable", "false");
+    button.draggable = false;
     button.innerHTML = `
       <span class="folder-name">${folder.name}</span>
-      <button class="trash" data-folder-delete="${folder.id}" aria-label="Delete folder">
+      <button class="trash" type="button" data-folder-delete="${folder.id}" aria-label="Delete folder">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 6h18" />
           <path d="M8 6V4h8v2" />
@@ -151,18 +469,23 @@ function renderFolders() {
       </button>
     `;
     button.addEventListener("click", (event) => {
+      if (folderDragActive) return;
       const target = event.target;
       if (target instanceof HTMLElement && target.closest("[data-folder-delete]")) return;
-      currentFolderId = folder.id;
-      setActiveNav();
-      renderFolders();
-      renderPrompts();
+      activateFolder(folder.id);
     });
     const trashBtn = button.querySelector("[data-folder-delete]");
+    trashBtn?.setAttribute("draggable", "false");
     trashBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       pendingFolderDelete = folder.id;
       showFolderConfirm();
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activateFolder(folder.id);
+      }
     });
     folderList.appendChild(button);
   });
@@ -174,17 +497,29 @@ function renderFolders() {
 
 function renderFolderSelect() {
   promptFolderSelect.innerHTML = "";
+  editorFolderSelect.innerHTML = "";
   const noneOption = document.createElement("option");
   noneOption.value = "";
   noneOption.textContent = "No folder";
   promptFolderSelect.appendChild(noneOption);
+  editorFolderSelect.appendChild(noneOption.cloneNode(true));
   const options = state.folders.filter((f) => f.id !== "all");
   options.forEach((folder) => {
     const opt = document.createElement("option");
     opt.value = folder.id;
     opt.textContent = folder.name;
     promptFolderSelect.appendChild(opt);
+    editorFolderSelect.appendChild(opt.cloneNode(true));
   });
+
+  // Keep selections stable when editing after re-rendering folders
+  const activePrompt = editingPromptId
+    ? state.prompts.find((p) => p.id === editingPromptId)
+    : null;
+  const targetFolderId = activePrompt?.folderId || "";
+  if (editorFolderSelect) {
+    editorFolderSelect.value = targetFolderId;
+  }
 }
 
 function renderPrompts() {
@@ -224,7 +559,13 @@ function renderPrompts() {
     card.className = "prompt-card";
     card.dataset.id = prompt.id;
     card.draggable = true;
-    const updated = prompt.updatedAt ? new Date(prompt.updatedAt).toLocaleDateString() : "";
+    const updated = prompt.updatedAt
+      ? new Date(prompt.updatedAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "";
     const updatedLabel = updated ? `Last updated ${updated}` : "Last updated —";
     card.innerHTML = `
       <div class="prompt-actions">
@@ -267,19 +608,24 @@ function updateSaveState() {
   savePromptButton.disabled = !(changed && hasContent);
 }
 
-async function handleAddFolder() {
-  const name = prompt("Name your folder:")?.trim();
-  if (!name) return;
-  const exists = state.folders.some(
-    (folder) => folder.name.toLowerCase() === name.toLowerCase()
-  );
-  if (exists) return;
-  const id = makeId("folder");
-  state.folders.push({ id, name, locked: false });
-  currentFolderId = id;
-  await saveState(state);
-  renderFolders();
-  renderPrompts();
+function captureEditorSnapshot() {
+  return {
+    title: editorTitleInput.value.trim(),
+    content: editorContentInput.value.trim(),
+    folderId: editorFolderSelect.value || "",
+  };
+}
+
+function updateEditorSaveState() {
+  if (!editorSaveButton) return;
+  const snapshot = captureEditorSnapshot();
+  const changed =
+    !editorSnapshot ||
+    snapshot.title !== editorSnapshot.title ||
+    snapshot.content !== editorSnapshot.content ||
+    snapshot.folderId !== editorSnapshot.folderId;
+  const hasContent = snapshot.content.length > 0;
+  editorSaveButton.disabled = !(changed && hasContent);
 }
 
 function openPromptModal(prompt) {
@@ -302,6 +648,30 @@ function hideModal() {
   editingPromptId = null;
   promptForm.reset();
   initialPromptSnapshot = null;
+}
+
+function openEditorView(prompt) {
+  editingPromptId = prompt.id;
+  if (editorHeading) editorHeading.textContent = "Edit Prompt";
+  editorTitleInput.value = prompt.title || "";
+  editorContentInput.value = prompt.content || "";
+  editorFolderSelect.value = prompt.folderId || "";
+  editorSnapshot = captureEditorSnapshot();
+  updateEditorSaveState();
+  listView?.classList.add("hidden");
+  editorView?.classList.remove("hidden");
+  editorDeleteButton.disabled = false;
+  editorCopyButton.disabled = false;
+  mainContainer?.classList.add("editing");
+}
+
+function closeEditorView() {
+  editingPromptId = null;
+  editorSnapshot = null;
+  editorForm.reset();
+  editorView?.classList.add("hidden");
+  listView?.classList.remove("hidden");
+  mainContainer?.classList.remove("editing");
 }
 
 async function handlePromptSubmit(event) {
@@ -344,6 +714,26 @@ async function deletePrompt(id) {
   reindexPromptOrder();
   await saveState(state);
   hideModal();
+  closeEditorView();
+  renderFolders();
+  renderPrompts();
+}
+
+async function handleEditorSave(event) {
+  event.preventDefault();
+  if (editorSaveButton.disabled || !editingPromptId) return;
+  const title = editorTitleInput.value.trim();
+  const content = editorContentInput.value.trim();
+  const folderId = editorFolderSelect.value;
+  if (!content) return;
+  state.prompts = state.prompts.map((item) =>
+    item.id === editingPromptId
+      ? { ...item, title, content, folderId: folderId || undefined, updatedAt: Date.now() }
+      : item
+  );
+  await saveState(state);
+  editorSnapshot = captureEditorSnapshot();
+  updateEditorSaveState();
   renderFolders();
   renderPrompts();
 }
@@ -351,6 +741,14 @@ async function deletePrompt(id) {
 function setActiveNav() {
   const isAll = currentFolderId === "all";
   navAllButton.classList.toggle("active", isAll);
+}
+
+function activateFolder(folderId) {
+  currentFolderId = folderId;
+  setActiveNav();
+  renderFolders();
+  renderPrompts();
+  clearFolderDragIndicators();
 }
 
 function showFolderConfirm() {
@@ -370,6 +768,7 @@ async function confirmDeleteFolder() {
   if (currentFolderId === folderId) {
     currentFolderId = "all";
   }
+  reindexFolderOrder();
   await saveState(state);
   hideFolderConfirm();
   renderFolders();
@@ -406,6 +805,18 @@ function resetCopyText(card) {
   }
 }
 
+function handleEditorDelete(event) {
+  event.preventDefault();
+  if (!editingPromptId) return;
+  deletePrompt(editingPromptId);
+}
+
+function handleEditorCopy(event) {
+  event.preventDefault();
+  if (!editingPromptId) return;
+  copyPrompt(editingPromptId);
+}
+
 function reindexPromptOrder() {
   state.prompts = state.prompts.map((prompt, index) => ({
     ...prompt,
@@ -422,6 +833,34 @@ function normalizePromptOrder() {
   });
   if (changed) {
     reindexPromptOrder();
+    saveState(state);
+  }
+}
+
+function reindexFolderOrder() {
+  const allFolder = state.folders.find((f) => f.id === "all");
+  const rest = state.folders
+    .filter((f) => f.id !== "all")
+    .sort((a, b) => {
+      const orderA = Number.isFinite(a.order) ? a.order : 0;
+      const orderB = Number.isFinite(b.order) ? b.order : 0;
+      return orderA - orderB;
+    })
+    .map((folder, index) => ({ ...folder, order: index }));
+  state.folders = allFolder ? [{ ...allFolder, order: -1 }, ...rest] : rest;
+}
+
+function normalizeFolderOrder() {
+  let changed = false;
+  const nonAll = state.folders.filter((f) => f.id !== "all");
+  nonAll.forEach((folder, index) => {
+    if (!Number.isFinite(folder.order)) {
+      folder.order = index;
+      changed = true;
+    }
+  });
+  if (changed) {
+    reindexFolderOrder();
     saveState(state);
   }
 }

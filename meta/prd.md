@@ -1,3 +1,5 @@
+- autosave
+
 create a minimal prompt manager chrome extension. 
 
 general:

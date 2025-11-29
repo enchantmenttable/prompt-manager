@@ -1,5 +1,7 @@
 :root {
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-family: var(--font-mono);
   color: #000;
 }
 
@@ -11,6 +13,7 @@
 
 body {
   margin: 0;
+  font-family: var(--font-mono);
 }
 
 .popup {

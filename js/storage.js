@@ -3,8 +3,8 @@ const STORAGE_KEY = "promptManagerState";
 function createDefaultState() {
   return {
     folders: [
-      { id: "all", name: "All Prompts", locked: true },
-      { id: "default", name: "My Prompts", locked: false },
+      { id: "all", name: "All Prompts", locked: true, order: -1 },
+      { id: "default", name: "My Prompts", locked: false, order: 0 },
     ],
     prompts: [],
   };
@@ -42,7 +42,7 @@ function ensureBaselineFolders(state) {
     ...state,
     folders: [
       ...(state.folders || []).filter((f) => f.id === "all"),
-      { id: "default", name: "My Prompts", locked: false },
+      { id: "default", name: "My Prompts", locked: false, order: 0 },
     ],
   };
   return next;

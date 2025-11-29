@@ -18,19 +18,53 @@
         <div class="section-label">Folders</div>
         <div id="folder-list" class="folder-list" aria-label="Folders"></div>
         <button id="add-folder" class="nav-item dashed">+ New Folder</button>
-        <div class="version">v1.0.0</div>
       </aside>
       <section class="main">
         <header class="topbar">
           <h1 id="view-title">All Prompts</h1>
           <button id="new-prompt" class="primary">+ New</button>
         </header>
-        <div class="toolbar">
-          <label class="search">
-            <input id="search" type="search" placeholder="Search prompts..." />
-          </label>
+
+        <div id="list-view">
+          <div class="toolbar">
+            <label class="search">
+              <input id="search" type="search" placeholder="Search prompts..." />
+            </label>
+          </div>
+          <div id="prompt-grid" class="prompt-grid" aria-live="polite"></div>
         </div>
-        <div id="prompt-grid" class="prompt-grid" aria-live="polite"></div>
+
+        <section id="editor-view" class="editor hidden" aria-live="polite">
+          <header class="editor-top">
+            <button id="editor-back" class="ghost icon-btn" aria-label="Back to list">←</button>
+            <h2 class="editor-title">Edit Prompt</h2>
+            <div class="editor-actions">
+              <button id="editor-copy" class="ghost">Copy</button>
+              <button id="editor-delete" class="ghost danger-text">Delete</button>
+              <button id="editor-save" class="primary" disabled>Save</button>
+            </div>
+          </header>
+          <form id="editor-form" class="editor-form">
+            <label class="field">
+              <span>Title (optional)</span>
+              <input id="editor-prompt-title" name="title" maxlength="160" />
+            </label>
+            <label class="field">
+              <span>Folder</span>
+              <select id="editor-prompt-folder" name="folder"></select>
+            </label>
+            <label class="field">
+              <span>Content</span>
+              <textarea
+                id="editor-prompt-content"
+                name="content"
+                rows="10"
+                placeholder="Write the prompt..."
+                required
+              ></textarea>
+            </label>
+          </form>
+        </section>
       </section>
     </div>
 
