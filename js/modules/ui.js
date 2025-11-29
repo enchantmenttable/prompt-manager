@@ -172,7 +172,6 @@ export function renderPrompts(state, currentFolderId) {
         const card = document.createElement("article");
         card.className = "prompt-card";
         card.dataset.id = prompt.id;
-        card.draggable = true;
         const updated = prompt.updatedAt
             ? new Date(prompt.updatedAt).toLocaleDateString("en-US", {
                 month: "short",
