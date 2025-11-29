@@ -8,6 +8,7 @@ let pendingFolderDelete = null;
 let draggingPromptId = null;
 let draggingFolderId = null;
 let draggingFolderEl = null;
+let folderPlaceholder = null;
 let folderDragOffsetY = 0;
 let folderDragMoved = false;
 let folderPointerId = null;
@@ -246,6 +247,11 @@ function handleFolderPointerDown(event) {
   const listRect = folderList.getBoundingClientRect();
   folderDragOffsetY = event.clientY - folderRect.top;
 
+  ensureFolderPlaceholder(folderRect);
+  if (folderPlaceholder && folder.parentNode === folderList) {
+    folderList.insertBefore(folderPlaceholder, folder);
+  }
+
   folder.classList.add("dragging");
   folder.style.width = `${folderRect.width}px`;
   folder.style.left = `${folderRect.left - listRect.left}px`;
@@ -266,15 +272,15 @@ function handleFolderPointerMove(event) {
   draggingFolderEl.style.top = `${newTop}px`;
 
   const target = getFolderFromPoint(event.clientX, event.clientY);
-  if (!target || target === draggingFolderEl) return;
+  if (!target || target === draggingFolderEl || target === folderPlaceholder) return;
 
   const targetRect = target.getBoundingClientRect();
   const before = event.clientY < targetRect.top + targetRect.height / 2;
   const firstPositions = captureFolderPositions();
   if (before) {
-    folderList.insertBefore(draggingFolderEl, target);
+    folderList.insertBefore(folderPlaceholder, target);
   } else {
-    folderList.insertBefore(draggingFolderEl, target.nextSibling);
+    folderList.insertBefore(folderPlaceholder, target.nextSibling);
   }
   playFlipAnimation(firstPositions);
 }
@@ -294,6 +300,12 @@ function handleFolderPointerUp(event) {
   draggingFolderEl.style.zIndex = "";
   draggingFolderEl.style.pointerEvents = "";
 
+  if (folderPlaceholder) {
+    folderList.insertBefore(draggingFolderEl, folderPlaceholder);
+    folderPlaceholder.remove();
+    folderPlaceholder = null;
+  }
+
   const orderedIds = Array.from(folderList.querySelectorAll(".folder")).map((el) => el.dataset.id);
   applyFolderOrderFromIds(orderedIds);
   draggingFolderId = null;
@@ -312,6 +324,15 @@ function captureFolderPositions() {
     positions.set(el.dataset.id, el.getBoundingClientRect());
   });
   return positions;
+}
+
+function ensureFolderPlaceholder(rect) {
+  if (!folderPlaceholder) {
+    folderPlaceholder = document.createElement("div");
+    folderPlaceholder.className = "folder placeholder";
+  }
+  folderPlaceholder.style.height = `${rect.height}px`;
+  folderPlaceholder.style.width = `${rect.width}px`;
 }
 
 function playFlipAnimation(firstPositions) {
@@ -414,6 +435,7 @@ function renderFolders() {
         activateFolder(folder.id);
       }
     });
+    button.addEventListener("pointerdown", handleFolderPointerDown);
     folderList.appendChild(button);
   });
   viewTitle.textContent =

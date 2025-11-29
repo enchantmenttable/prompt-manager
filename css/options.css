@@ -162,6 +162,14 @@ body {
   box-shadow: 6px 6px 0 #000;
   transform: none;
   z-index: 2;
+  position: absolute;
+  pointer-events: none;
+}
+
+.folder.placeholder {
+  border: 2px dashed transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .folder.drag-over {
