@@ -8,15 +8,11 @@ let pendingFolderDelete = null;
 let draggingPromptId = null;
 let draggingFolderId = null;
 let draggingFolderEl = null;
-let folderPlaceholder = null;
 let folderDragOffsetY = 0;
 let folderDragMoved = false;
 let folderPointerId = null;
 let folderDragStartX = 0;
 let folderDragStartY = 0;
-let folderDragActive = false;
-let lastFolderHoverId = null;
-let lastFolderHoverBefore = null;
 let editorSnapshot = null;
 
 const folderList = document.getElementById("folder-list");
@@ -172,7 +168,6 @@ function reorderPrompts(fromId, toId) {
 }
 
 function handleAddFolderButton() {
-  if (folderDragActive) return;
   showAddFolderForm();
 }
 
@@ -239,15 +234,26 @@ function handleFolderPointerDown(event) {
   if (!(event.target instanceof HTMLElement)) return;
   const folder = event.target.closest(".folder");
   if (!folder || folder.querySelector("[data-folder-delete]")?.contains(event.target)) return;
+  event.preventDefault();
   draggingFolderId = folder.dataset.id;
   draggingFolderEl = folder;
   folderDragMoved = false;
+  folderPointerId = event.pointerId ?? null;
   folderDragStartX = event.clientX;
   folderDragStartY = event.clientY;
-  folderPointerId = null;
-  folderDragActive = false;
-  lastFolderHoverId = null;
-  lastFolderHoverBefore = null;
+
+  const folderRect = folder.getBoundingClientRect();
+  const listRect = folderList.getBoundingClientRect();
+  folderDragOffsetY = event.clientY - folderRect.top;
+
+  folder.classList.add("dragging");
+  folder.style.width = `${folderRect.width}px`;
+  folder.style.left = `${folderRect.left - listRect.left}px`;
+  folder.style.top = `${folderRect.top - listRect.top + folderList.scrollTop}px`;
+  folder.style.position = "absolute";
+  folder.style.zIndex = "3";
+  folder.style.pointerEvents = "none";
+  folder.setPointerCapture?.(event.pointerId);
 
   window.addEventListener("pointermove", handleFolderPointerMove);
   window.addEventListener("pointerup", handleFolderPointerUp);
@@ -255,129 +261,30 @@ function handleFolderPointerDown(event) {
 
 function handleFolderPointerMove(event) {
   if (!draggingFolderId || !draggingFolderEl) return;
-  const deltaX = Math.abs(event.clientX - folderDragStartX);
-  const deltaY = Math.abs(event.clientY - folderDragStartY);
-  if (!folderDragActive && deltaX < 3 && deltaY < 3) return;
-  if (!folderDragActive) {
-    beginFolderDrag(event);
-  }
   const listRect = folderList.getBoundingClientRect();
   const newTop = event.clientY - listRect.top + folderList.scrollTop - folderDragOffsetY;
   draggingFolderEl.style.top = `${newTop}px`;
 
-  if (!folderDragMoved && (deltaX >= 3 || deltaY >= 3)) {
-    folderDragMoved = true;
-  }
-  folderDragMoved = true;
-  updateFolderPlaceholder(event);
-}
-
-function handleFolderPointerUp() {
-  if (!draggingFolderId) return;
-  const slots = Array.from(folderList.querySelectorAll(".folder")).filter(
-    (el) => el !== draggingFolderEl
-  );
-  const orderedIds = slots.map((el) =>
-    el === folderPlaceholder ? draggingFolderId : el.dataset.id
-  );
-  restoreDraggedFolder();
-  if (folderDragActive && folderDragMoved && orderedIds.length) {
-    applyFolderOrderFromIds(orderedIds);
-    renderFolders();
-    renderPrompts();
-  }
-  window.removeEventListener("pointermove", handleFolderPointerMove);
-  window.removeEventListener("pointerup", handleFolderPointerUp);
-  draggingFolderId = null;
-  draggingFolderEl = null;
-  folderDragMoved = false;
-  folderDragActive = false;
-  lastFolderHoverId = null;
-  lastFolderHoverBefore = null;
-}
-
-function ensureFolderPlaceholder(height) {
-  if (!folderPlaceholder) {
-    folderPlaceholder = document.createElement("div");
-    folderPlaceholder.className = "folder placeholder";
-  }
-  folderPlaceholder.style.height = `${height}px`;
-}
-
-function captureFolderPositions() {
-  const positions = new Map();
-  folderList.querySelectorAll(".folder").forEach((el) => {
-    if (el === draggingFolderEl || el === folderPlaceholder) return;
-    positions.set(el.dataset.id, el.getBoundingClientRect());
-  });
-  return positions;
-}
-
-function playFlipAnimation(firstPositions) {
-  folderList.querySelectorAll(".folder").forEach((el) => {
-    if (el === draggingFolderEl || el === folderPlaceholder) return;
-    const first = firstPositions.get(el.dataset.id);
-    if (!first) return;
-    const last = el.getBoundingClientRect();
-    const dy = first.top - last.top;
-    if (!dy) return;
-    el.style.transition = "none";
-    el.style.transform = `translateY(${dy}px)`;
-    requestAnimationFrame(() => {
-      el.style.transition = "transform 240ms ease-out";
-      el.style.transform = "translateY(0)";
-      setTimeout(() => {
-        el.style.transition = "";
-        el.style.transform = "";
-      }, 260);
-    });
-  });
-}
-
-function updateFolderPlaceholder(event) {
-  if (!folderPlaceholder || !draggingFolderEl) return;
   const target = getFolderFromPoint(event.clientX, event.clientY);
-  if (!target || target === folderPlaceholder || target.dataset.id === draggingFolderId) return;
+  if (!target || target === draggingFolderEl) return;
+
   const targetRect = target.getBoundingClientRect();
-  const y = event.clientY;
-  const upper = targetRect.top + targetRect.height * 0.35;
-  const lower = targetRect.top + targetRect.height * 0.65;
-  const currentIndex = Array.from(folderList.querySelectorAll(".folder")).indexOf(
-    folderPlaceholder
-  );
-  let before = null;
-  if (y < upper) before = true;
-  else if (y > lower) before = false;
-
-  const targetId = target.dataset.id;
-  if (targetId === lastFolderHoverId && before === lastFolderHoverBefore) return;
-  lastFolderHoverId = targetId;
-  lastFolderHoverBefore = before;
-
-  const slots = Array.from(folderList.querySelectorAll(".folder")).filter(
-    (el) => el !== draggingFolderEl && el !== folderPlaceholder
-  );
-  const targetIndex = slots.indexOf(target);
-  let desiredIndex = currentIndex;
-  if (before === true) desiredIndex = targetIndex;
-  else if (before === false) desiredIndex = targetIndex + 1;
-  if (desiredIndex === -1) desiredIndex = slots.length;
-  if (desiredIndex === currentIndex) return;
-
+  const before = event.clientY < targetRect.top + targetRect.height / 2;
   const firstPositions = captureFolderPositions();
-  const insertBefore = slots[desiredIndex] || null;
-  folderList.insertBefore(folderPlaceholder, insertBefore);
+  if (before) {
+    folderList.insertBefore(draggingFolderEl, target);
+  } else {
+    folderList.insertBefore(draggingFolderEl, target.nextSibling);
+  }
   playFlipAnimation(firstPositions);
 }
 
-function restoreDraggedFolder() {
+function handleFolderPointerUp(event) {
   if (!draggingFolderEl) return;
-  if (folderPlaceholder && folderList.contains(folderPlaceholder)) {
-    folderList.insertBefore(draggingFolderEl, folderPlaceholder);
-    folderPlaceholder.remove();
-    folderPlaceholder = null;
-  } else if (!folderList.contains(draggingFolderEl)) {
-    folderList.appendChild(draggingFolderEl);
+  try {
+    draggingFolderEl.releasePointerCapture?.(event.pointerId);
+  } catch (err) {
+    // ignore
   }
   draggingFolderEl.classList.remove("dragging");
   draggingFolderEl.style.position = "";
@@ -386,14 +293,46 @@ function restoreDraggedFolder() {
   draggingFolderEl.style.width = "";
   draggingFolderEl.style.zIndex = "";
   draggingFolderEl.style.pointerEvents = "";
-  try {
-    if (folderPointerId != null) {
-      draggingFolderEl.releasePointerCapture?.(folderPointerId);
-    }
-  } catch (err) {
-    // ignore release issues
-  }
-  folderPointerId = null;
+
+  const orderedIds = Array.from(folderList.querySelectorAll(".folder")).map((el) => el.dataset.id);
+  applyFolderOrderFromIds(orderedIds);
+  draggingFolderId = null;
+  draggingFolderEl = null;
+  folderDragMoved = false;
+  renderFolders();
+  renderPrompts();
+
+  window.removeEventListener("pointermove", handleFolderPointerMove);
+  window.removeEventListener("pointerup", handleFolderPointerUp);
+}
+
+function captureFolderPositions() {
+  const positions = new Map();
+  folderList.querySelectorAll(".folder").forEach((el) => {
+    positions.set(el.dataset.id, el.getBoundingClientRect());
+  });
+  return positions;
+}
+
+function playFlipAnimation(firstPositions) {
+  folderList.querySelectorAll(".folder").forEach((el) => {
+    if (el === draggingFolderEl) return;
+    const first = firstPositions.get(el.dataset.id);
+    if (!first) return;
+    const last = el.getBoundingClientRect();
+    const dy = first.top - last.top;
+    if (!dy) return;
+    el.style.transition = "none";
+    el.style.transform = `translateY(${dy}px)`;
+    requestAnimationFrame(() => {
+      el.style.transition = "transform 200ms ease-out";
+      el.style.transform = "translateY(0)";
+      setTimeout(() => {
+        el.style.transition = "";
+        el.style.transform = "";
+      }, 220);
+    });
+  });
 }
 
 function getFolderFromPoint(x, y) {
@@ -404,25 +343,13 @@ function getFolderFromPoint(x, y) {
   return null;
 }
 
-function beginFolderDrag(event) {
-  if (!draggingFolderEl) return;
-  folderDragActive = true;
-  folderPointerId = event.pointerId;
-  const folderRect = draggingFolderEl.getBoundingClientRect();
-  const listRect = folderList.getBoundingClientRect();
-  folderDragOffsetY = event.clientY - folderRect.top;
-  ensureFolderPlaceholder(folderRect.height);
-  if (folderPlaceholder && draggingFolderEl.parentNode === folderList) {
-    folderList.insertBefore(folderPlaceholder, draggingFolderEl);
+function isBefore(el1, el2) {
+  if (el2.parentNode === el1.parentNode) {
+    for (let cur = el1.previousSibling; cur && cur.nodeType !== 9; cur = cur.previousSibling) {
+      if (cur === el2) return true;
+    }
   }
-  draggingFolderEl.classList.add("dragging");
-  draggingFolderEl.style.width = `${folderRect.width}px`;
-  draggingFolderEl.style.left = `${folderRect.left - listRect.left}px`;
-  draggingFolderEl.style.top = `${folderRect.top - listRect.top + folderList.scrollTop}px`;
-  draggingFolderEl.style.position = "absolute";
-  draggingFolderEl.style.zIndex = "3";
-  draggingFolderEl.style.pointerEvents = "none";
-  draggingFolderEl.setPointerCapture?.(event.pointerId);
+  return false;
 }
 
 function applyFolderOrderFromIds(ids) {
@@ -469,7 +396,7 @@ function renderFolders() {
       </button>
     `;
     button.addEventListener("click", (event) => {
-      if (folderDragActive) return;
+      if (draggingFolderId) return;
       const target = event.target;
       if (target instanceof HTMLElement && target.closest("[data-folder-delete]")) return;
       activateFolder(folder.id);
