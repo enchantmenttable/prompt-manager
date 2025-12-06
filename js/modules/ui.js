@@ -159,11 +159,16 @@ export function renderPrompts(state, currentFolderId) {
     if (visiblePrompts.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty";
+
+        const hasAnyPrompts = state.prompts.length > 0;
+        const message = hasAnyPrompts
+            ? "<div>No prompts found.</div>"
+            : "<div>No prompts found.</div><div>Create one to get started.</div>";
+
         empty.innerHTML = `
-      <div class="empty-icon"></div>
-      <div>No prompts found.</div>
-      <div class="hint">Create one to get started.</div>
+      <div class="hint">${message}</div>
     `;
+
         promptGrid.appendChild(empty);
         return;
     }
@@ -190,6 +195,15 @@ export function renderPrompts(state, currentFolderId) {
         <span>${updatedLabel}</span>
       </div>
     `;
+
+        // Handle copy button click locally to update UI immediately
+        const copyBtn = card.querySelector(".copy-chip");
+        copyBtn.addEventListener("click", (e) => {
+            e.stopPropagation(); // Prevent card click
+            copyBtn.textContent = "COPIED";
+            callbacks.onCopyPrompt(prompt.id, prompt.content);
+        });
+
         promptGrid.appendChild(card);
         attachCardReset(card);
     });
@@ -198,11 +212,15 @@ export function renderPrompts(state, currentFolderId) {
 function attachCardReset(card) {
     card.addEventListener("mouseleave", () => {
         const copyButton = card.querySelector(".copy-chip");
-        if (copyButton) copyButton.blur();
+        if (copyButton) {
+            copyButton.blur();
+        }
     });
     card.addEventListener("mouseenter", () => {
         const copyButton = card.querySelector(".copy-chip");
-        if (copyButton) copyButton.textContent = "Copy";
+        if (copyButton) {
+            copyButton.textContent = "Copy";
+        }
     });
 }
 

@@ -12,6 +12,19 @@
     box-sizing: border-box;
 }
 
+::-webkit-scrollbar {
+    width: 6px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, var(--sb-opacity, 0));
+}
+
 body {
     margin: 0;
     min-height: 100vh;
@@ -21,7 +34,8 @@ body {
 .shell {
     display: grid;
     grid-template-columns: 260px 1fr;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
     background-size: 18px 18px;
 }
@@ -33,6 +47,7 @@ body {
     flex-direction: column;
     gap: 12px;
     background: #fff;
+    overflow: hidden;
 }
 
 .brand {
@@ -68,6 +83,10 @@ body {
     gap: 8px;
     flex: 1 1 auto;
     position: relative;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 4px 12px 12px 18px;
+    margin: 0 -18px;
 }
 
 .nav-item,
@@ -100,7 +119,7 @@ body {
     border: 2px dashed #000;
     box-shadow: none;
     margin-top: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 0;
 }
 
 .nav-item.dashed:hover,
@@ -151,7 +170,7 @@ body {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
         "Courier New", monospace;
     position: relative;
-    box-shadow: 0 0 0 #000;
+    box-shadow: 0 0 0 #888;
     text-align: left;
     user-select: none;
     -webkit-user-select: none;
@@ -159,7 +178,7 @@ body {
 
 .folder.dragging {
     opacity: 0.95;
-    box-shadow: 6px 6px 0 #000;
+    box-shadow: 6px 6px 0 #888;
     transform: none;
     z-index: 2;
     position: absolute;
@@ -206,7 +225,7 @@ body {
 }
 
 .folder:hover {
-    box-shadow: 4px 4px 0 #000;
+    box-shadow: 4px 4px 0 #888;
     transform: translate(-2px, -2px);
 }
 
@@ -237,7 +256,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 28px 12px;
+    padding: 16px 28px 8px;
     background: #fff;
 }
 
@@ -254,8 +273,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    max-width: 1150px;
-    margin: 0 auto 40px;
+    margin: 0 0 40px;
 }
 
 .editor-top {
@@ -290,14 +308,44 @@ body {
 }
 
 .editor-form {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 40px;
+    height: 100%;
+    max-width: 66.66%;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.editor-col-left {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
+}
+
+.editor-col-right {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.editor-col-right .field {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-form input,
+.editor-form textarea,
+.editor-form select {
+    font-weight: normal;
+    border: 2px solid #000;
 }
 
 .editor-form textarea {
-    min-height: 360px;
-    border: 2px solid #000;
+    flex: 1;
+    min-height: 500px;
+    resize: none;
 }
 
 .danger-text {
@@ -321,7 +369,7 @@ body {
 }
 
 .toolbar {
-    padding: 12px 28px 16px;
+    padding: 8px 28px 16px;
     border-bottom: 2px solid #000;
     background: #fff;
 }
@@ -335,7 +383,15 @@ body {
     width: 100%;
     padding: 12px 14px;
     border: 2px solid #000;
-    font-weight: 600;
+    font-weight: normal;
+}
+
+.search input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    height: 14px;
+    width: 14px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><line x1='18' y1='6' x2='6' y2='18'></line><line x1='6' y1='6' x2='18' y2='18'></line></svg>");
+    cursor: pointer;
 }
 
 .main {
@@ -344,6 +400,16 @@ body {
     background: #fff;
     background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
     background-size: 18px 18px;
+    height: 100%;
+    overflow: hidden;
+}
+
+#list-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
 }
 
 .prompt-grid {
@@ -351,12 +417,12 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(260px, calc((100% - 32px) / 3)));
     grid-auto-rows: 190px;
     gap: 16px;
-    padding: 20px 28px 32px;
+    padding: 20px 22px 32px 29px;
     position: relative;
     border-top: none;
-    min-height: 60vh;
-    max-width: 1200px;
-    margin: 0 auto;
+    flex: 1;
+    overflow-y: auto;
+    width: 100%;
     align-items: stretch;
     align-content: start;
 }
@@ -449,7 +515,7 @@ body {
 
 .prompt-card:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 10px 10px 0 #000;
+    box-shadow: 10px 10px 0 #888;
 }
 
 .prompt-card.dragging {
@@ -459,6 +525,7 @@ body {
     z-index: 100;
     transform: scale(1.02);
     cursor: grabbing;
+    pointer-events: none;
 }
 
 .prompt-card.placeholder {
@@ -494,6 +561,13 @@ button {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     transition: background 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+button#new-prompt {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 12px;
+    padding-right: 14px;
 }
 
 button.ghost {
@@ -547,7 +621,7 @@ button.primary:focus-visible:not(:disabled) {
 .modal-sheet {
     background: #fff;
     border: 3px solid #000;
-    box-shadow: 8px 8px 0 #000;
+    box-shadow: 8px 8px 0 #888;
     max-width: 520px;
     width: 100%;
 }
@@ -590,7 +664,15 @@ textarea:focus-visible,
 select:focus-visible {
     outline: none;
     border-color: #000;
-    box-shadow: 6px 6px 0 #000;
+    box-shadow: 6px 6px 0 #888;
+}
+
+.search input:focus-visible,
+.editor-form input:focus-visible,
+.editor-form textarea:focus-visible {
+    box-shadow: 6px 6px 0 #888;
+    border-color: #000;
+    outline: none;
 }
 
 textarea {
@@ -688,22 +770,4 @@ textarea {
     text-align: center;
     border-top: 2px solid #000;
     padding-top: 10px;
-}
-
-.empty-icon {
-    width: 42px;
-    height: 56px;
-    border: 3px solid #000;
-    margin: 0 auto 10px;
-    position: relative;
-}
-
-.empty-icon::after {
-    content: "";
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 16px;
-    height: 4px;
-    background: #000;
 }

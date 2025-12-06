@@ -1,123 +1,121 @@
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="utf-8" />
-    <title>Prompt Manager</title>
+    <title>MonoPrompt</title>
     <link rel="stylesheet" href="../css/options.css" />
-  </head>
-  <body>
+</head>
+
+<body>
     <div class="shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark"></div>
-          <div class="brand-text">MONOPROMPT</div>
-        </div>
-        <button class="nav-item active" data-id="all">
-          <span>All Prompts</span>
-        </button>
-        <div class="section-label">Folders</div>
-        <div id="folder-list" class="folder-list" aria-label="Folders"></div>
-        <button id="add-folder" class="nav-item dashed">+ New Folder</button>
-      </aside>
-      <section class="main">
-        <header class="topbar">
-          <h1 id="view-title">All Prompts</h1>
-          <button id="new-prompt" class="primary">+ New</button>
-        </header>
-
-        <div id="list-view">
-          <div class="toolbar">
-            <label class="search">
-              <input id="search" type="search" placeholder="Search prompts..." />
-            </label>
-          </div>
-          <div id="prompt-grid" class="prompt-grid" aria-live="polite"></div>
-        </div>
-
-        <section id="editor-view" class="editor hidden" aria-live="polite">
-          <header class="editor-top">
-            <button id="editor-back" class="ghost icon-btn" aria-label="Back to list">←</button>
-            <h2 class="editor-title">Edit Prompt</h2>
-            <div class="editor-actions">
-              <button id="editor-copy" class="ghost">Copy</button>
-              <button id="editor-delete" class="ghost danger-text">Delete</button>
-              <button id="editor-save" class="primary" disabled>Save</button>
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark"></div>
+                <div class="brand-text">MONOPROMPT</div>
             </div>
-          </header>
-          <form id="editor-form" class="editor-form">
-            <label class="field">
-              <span>Title (optional)</span>
-              <input id="editor-prompt-title" name="title" maxlength="160" />
-            </label>
-            <label class="field">
-              <span>Folder</span>
-              <select id="editor-prompt-folder" name="folder"></select>
-            </label>
-            <label class="field">
-              <span>Content</span>
-              <textarea
-                id="editor-prompt-content"
-                name="content"
-                rows="10"
-                placeholder="Write the prompt..."
-                required
-              ></textarea>
-            </label>
-          </form>
+            <button class="nav-item active" data-id="all">
+                <span>All Prompts</span>
+            </button>
+            <div class="section-label">Folders</div>
+            <div id="folder-list" class="folder-list" aria-label="Folders"></div>
+            <button id="add-folder" class="nav-item dashed">+ New Folder</button>
+        </aside>
+        <section class="main">
+
+
+            <div id="list-view">
+                <header class="topbar">
+                    <h1 id="view-title">All Prompts</h1>
+                    <button id="new-prompt" class="primary">+ New</button>
+                </header>
+                <div class="toolbar">
+                    <label class="search">
+                        <input id="search" type="search" placeholder="Search prompts..." spellcheck="false" />
+                    </label>
+                </div>
+                <div id="prompt-grid" class="prompt-grid" aria-live="polite"></div>
+            </div>
+
+            <section id="editor-view" class="editor hidden" aria-live="polite">
+                <header class="editor-top">
+                    <button id="editor-back" class="ghost icon-btn" aria-label="Back to list">←</button>
+                    <h2 class="editor-title">Edit Prompt</h2>
+                    <div class="editor-actions">
+                        <button id="editor-copy" class="ghost">Copy</button>
+                        <button id="editor-save" class="primary" disabled>Save</button>
+                        <button id="editor-delete" class="ghost danger-text">Delete</button>
+                    </div>
+                </header>
+                <form id="editor-form" class="editor-form">
+                    <div class="editor-col-left">
+                        <label class="field">
+                            <span>Title (optional)</span>
+                            <input id="editor-prompt-title" name="title" maxlength="160" spellcheck="false" />
+                        </label>
+                        <label class="field">
+                            <span>Folder</span>
+                            <select id="editor-prompt-folder" name="folder"></select>
+                        </label>
+                    </div>
+                    <div class="editor-col-right">
+                        <label class="field">
+                            <span>Content</span>
+                            <textarea id="editor-prompt-content" name="content" rows="10"
+                                placeholder="Write the prompt..." required spellcheck="false"></textarea>
+                        </label>
+                    </div>
+                </form>
+            </section>
         </section>
-      </section>
     </div>
 
     <div id="prompt-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-sheet">
-        <header class="modal-header">
-          <h2 id="modal-title">New Prompt</h2>
-          <button id="close-modal" class="ghost" aria-label="Close form">X</button>
-        </header>
-        <form id="prompt-form" class="modal-body">
-          <label class="field">
-            <span>Title (optional)</span>
-            <input id="prompt-title" name="title" maxlength="160" />
-          </label>
-          <label class="field">
-            <span>Content</span>
-            <textarea
-              id="prompt-content"
-              name="content"
-              rows="6"
-              placeholder="Write the prompt..."
-              required
-            ></textarea>
-          </label>
-          <label class="field">
-            <span>Folder</span>
-            <select id="prompt-folder" name="folder"></select>
-          </label>
-          <div class="modal-actions">
-            <button type="button" id="delete-prompt" class="danger ghost hidden">
-              Delete
-            </button>
-            <div class="spacer"></div>
-            <button type="button" id="cancel-modal" class="ghost">Cancel</button>
-            <button type="submit" class="primary">Save</button>
-          </div>
-        </form>
-      </div>
+        <div class="modal-sheet">
+            <header class="modal-header">
+                <h2 id="modal-title">New Prompt</h2>
+                <button id="close-modal" class="ghost" aria-label="Close form">X</button>
+            </header>
+            <form id="prompt-form" class="modal-body">
+                <label class="field">
+                    <span>Title (optional)</span>
+                    <input id="prompt-title" name="title" maxlength="160" />
+                </label>
+                <label class="field">
+                    <span>Content</span>
+                    <textarea id="prompt-content" name="content" rows="6" placeholder="Write the prompt..."
+                        required></textarea>
+                </label>
+                <label class="field">
+                    <span>Folder</span>
+                    <select id="prompt-folder" name="folder"></select>
+                </label>
+                <div class="modal-actions">
+                    <button type="button" id="delete-prompt" class="danger ghost hidden">
+                        Delete
+                    </button>
+                    <div class="spacer"></div>
+                    <button type="button" id="cancel-modal" class="ghost">Cancel</button>
+                    <button type="submit" class="primary">Save</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div id="folder-confirm" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-sheet confirm-sheet">
-        <div class="modal-body confirm-body">
-          <h3>Delete folder?</h3>
-          <p>All prompts within this folder will be permanently deleted.</p>
-          <div class="modal-actions confirm-actions">
-            <button type="button" id="cancel-folder-delete" class="ghost">Cancel</button>
-            <button type="button" id="confirm-folder-delete" class="danger">Delete</button>
-          </div>
+        <div class="modal-sheet confirm-sheet">
+            <div class="modal-body confirm-body">
+                <h3>Delete folder?</h3>
+                <p>All prompts within this folder will be permanently deleted.</p>
+                <div class="modal-actions confirm-actions">
+                    <button type="button" id="cancel-folder-delete" class="ghost">Cancel</button>
+                    <button type="button" id="confirm-folder-delete" class="danger">Delete</button>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
 
     <script type="module" src="../js/options.js"></script>
-  </body>
+</body>
+
 </html>
