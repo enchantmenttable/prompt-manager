@@ -1,156 +1,359 @@
 :root {
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
-  font-family: var(--font-mono);
-  color: #000;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+    font-family: var(--font-mono);
+    color: #000;
 }
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, var(--sb-opacity, 0));
 }
 
 body {
-  margin: 0;
-  font-family: var(--font-mono);
+    margin: 0;
+    font-family: var(--font-mono);
+}
+
+input,
+button,
+select,
+textarea {
+    font-family: var(--font-mono);
 }
 
 .popup {
-  width: 360px;
-  min-height: 420px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: #fff;
-  background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
-  background-size: 16px 16px;
+    width: 360px;
+    height: 500px;
+    /* Fixed height for scrolling */
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+    background-size: 16px 16px;
+    overflow: hidden;
 }
 
 .popup-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 16px 12px;
+    background: #fff;
+    flex-shrink: 0;
 }
 
-.link-btn {
-  border: 2px solid #000;
-  background: #fff;
-  padding: 6px 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  box-shadow: 3px 3px 0 #000;
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.eyebrow {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 800;
+.view-all-link {
+    font-size: 12px;
+    font-weight: 700;
+    color: #888;
+    /* Placeholder gray */
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 120ms ease;
+    text-transform: lowercase;
+}
+
+.view-all-link:hover {
+    color: #000;
+}
+
+.new-btn {
+    border: 2px solid #000;
+    background: #fff;
+    padding: 6px 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+    font-size: 12px;
+}
+
+.new-btn:hover {
+    background: #000;
+    color: #fff;
 }
 
 h1 {
-  margin: 4px 0 0;
-  font-size: 18px;
+    margin: 0;
+    font-size: 18px;
+}
+
+.search-wrap {
+    padding: 0 16px 16px;
+    background: #fff;
+    border-bottom: 2px solid #000;
+    /* Divider */
+    flex-shrink: 0;
 }
 
 .search-wrap input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #000;
-  font-weight: 700;
-  background: #fff;
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #000;
+    font-weight: normal;
+    background: #fff;
+    transition: box-shadow 140ms ease;
 }
 
-.tab-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.search-wrap input:focus-visible {
+    outline: none;
+    box-shadow: 6px 6px 0 #888;
 }
 
-.tab {
-  border: 2px solid #000;
-  background: #fff;
-  padding: 6px 10px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 3px 3px 0 #000;
-  transition: transform 120ms ease, box-shadow 120ms ease;
-}
-
-.tab.active {
-  background: #000;
-  color: #fff;
-  box-shadow: 5px 5px 0 #000;
-  transform: translate(-1px, -1px);
+.search-wrap input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    height: 12px;
+    width: 12px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><line x1='18' y1='6' x2='6' y2='18'></line><line x1='6' y1='6' x2='18' y2='18'></line></svg>");
+    cursor: pointer;
 }
 
 .prompt-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
 }
 
 .prompt-item {
-  border: 2px solid #000;
-  background: #fff;
-  padding: 12px;
-  position: relative;
-  box-shadow: 4px 4px 0 #000;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+    border: 2px solid #000;
+    background: #fff;
+    padding: 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+    cursor: default;
+}
+
+.prompt-item:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 #888;
 }
 
 .prompt-headline {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 800;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+    padding-right: 60px;
+    /* Space for copy button */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .prompt-content {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.4;
-  white-space: pre-wrap;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .prompt-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 700;
-  font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    font-size: 12px;
 }
 
 .copy-btn {
-  border: 2px solid #000;
-  background: #fff;
-  padding: 6px 10px;
-  font-weight: 800;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 120ms ease;
+    border: 2px solid #000;
+    background: #fff;
+    padding: 4px 8px;
+    font-weight: 800;
+    font-size: 10px;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+    position: absolute;
+    top: 10px;
+    right: 10px;
 }
 
 .prompt-item:hover .copy-btn,
 .copy-btn:focus {
-  opacity: 1;
+    opacity: 1;
+}
+
+.copy-btn:hover {
+    background: #000;
+    color: #fff;
 }
 
 .empty {
-  border: 2px dashed #000;
-  padding: 12px;
-  font-weight: 700;
-  text-align: center;
+    border: 2px dashed #000;
+    padding: 12px;
+    font-weight: 700;
+    text-align: center;
 }
 
-.toast {
-  min-height: 16px;
-  font-size: 12px;
-  font-weight: 800;
+/* Utility */
+.hidden {
+    display: none !important;
+}
+
+/* Views */
+#list-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* New Prompt Form */
+#new-prompt-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.form-wrap {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 10px;
+    border: 2px solid #000;
+    font-size: 13px;
+    font-weight: 500;
+    resize: none;
+}
+
+.form-group textarea {
+    min-height: 120px;
+    flex: 1;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 16px;
+}
+
+.save-btn,
+.cancel-btn {
+    flex: 1;
+    padding: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 2px solid #000;
+    transition: all 0.1s;
+}
+
+.save-btn {
+    background: #000;
+    color: #fff;
+}
+
+.save-btn:hover {
+    background: #333;
+}
+
+.cancel-btn {
+    background: #fff;
+    color: #000;
+}
+
+.cancel-btn:hover {
+    background: #f0f0f0;
+}
+
+/* Reuse custom select styles for folder dropdown */
+#popup-folder-select {
+    width: 100%;
+}
+
+#popup-folder-select .custom-select__trigger {
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 2px solid #000;
+    background: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+#popup-folder-select .custom-select__options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    border: 2px solid #000;
+    border-top: none;
+    background: #fff;
+    z-index: 20;
+    max-height: 150px;
+    overflow-y: auto;
+    display: none;
+}
+
+#popup-folder-select.open .custom-select__options {
+    display: block;
+}
+
+#popup-folder-select .custom-option {
+    padding: 8px 10px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#popup-folder-select .custom-option:hover {
+    background: #000;
+    color: #fff;
 }

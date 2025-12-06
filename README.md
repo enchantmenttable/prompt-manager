@@ -1,4 +1,4 @@
-# Prompt Manager Chrome Extension Template
+# MonoPrompt Chrome Extension Template
 
 This is a lightweight Manifest V3 template that includes a popup, background service worker, and options page. Use it as a starting point for building prompt management tooling or any other extension ideas.
 

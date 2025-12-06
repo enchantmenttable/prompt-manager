@@ -5,6 +5,7 @@ export const folderList = document.getElementById("folder-list");
 export const promptGrid = document.getElementById("prompt-grid");
 const viewTitle = document.getElementById("view-title");
 const searchInput = document.getElementById("search");
+const clearSearchButton = document.getElementById("clear-search");
 const addFolderButton = document.getElementById("add-folder");
 const newPromptButton = document.getElementById("new-prompt");
 const navAllButton = document.querySelector('.nav-item[data-id="all"]');
@@ -47,13 +48,32 @@ export function initUI(cbs) {
 
 function bindStaticEvents() {
     searchInput.addEventListener("input", () => callbacks.onSearch(searchInput.value));
+    searchInput.addEventListener("search", () => callbacks.onSearch(searchInput.value));
+    clearSearchButton?.addEventListener("click", () => {
+        searchInput.value = "";
+        callbacks.onSearch("");
+        searchInput.focus();
+    });
     addFolderButton.addEventListener("click", showAddFolderForm);
     navAllButton.addEventListener("click", () => callbacks.onActivateFolder("all"));
-    newPromptButton.addEventListener("click", () => openPromptModal());
+    newPromptButton.addEventListener("click", () => {
+        if (callbacks.onNewPrompt) {
+            callbacks.onNewPrompt();
+        } else {
+            openPromptModal();
+        }
+    });
     cancelModal.addEventListener("click", hideModal);
     closeModal.addEventListener("click", hideModal);
     deletePromptButton.addEventListener("click", () => callbacks.onDeletePrompt());
     promptForm.addEventListener("submit", handlePromptSubmit);
+    promptForm.addEventListener("submit", handlePromptSubmit);
+    promptModal.addEventListener("click", (event) => {
+        if (event.target === promptModal) hideModal();
+    });
+    folderConfirmModal.addEventListener("click", (event) => {
+        if (event.target === folderConfirmModal) hideFolderConfirm();
+    });
     cancelFolderDelete.addEventListener("click", hideFolderConfirm);
     confirmFolderDelete.addEventListener("click", callbacks.onConfirmDeleteFolder);
 
@@ -67,6 +87,13 @@ function bindStaticEvents() {
     editorSaveButton?.addEventListener("click", handleEditorSave);
     editorDeleteButton?.addEventListener("click", callbacks.onEditorDelete);
     editorCopyButton?.addEventListener("click", callbacks.onEditorCopy);
+
+    // Close custom selects when clicking outside
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".custom-select-container")) {
+            document.querySelectorAll(".custom-select-container.open").forEach(el => el.classList.remove("open"));
+        }
+    });
 }
 
 // Rendering
@@ -248,6 +275,177 @@ export function renderFolderSelect(state, editingPromptId) {
     if (editorFolderSelect) {
         editorFolderSelect.value = targetFolderId;
     }
+
+    updateCustomSelect(promptFolderSelect);
+    updateCustomSelect(editorFolderSelect);
+}
+
+function setupCustomSelect(nativeSelect) {
+    if (nativeSelect.classList.contains("replaced-by-custom")) return;
+
+    // Create container
+    const container = document.createElement("div");
+    container.className = "custom-select-container";
+
+    // Create trigger
+    const trigger = document.createElement("div");
+    trigger.className = "custom-select-trigger";
+    trigger.tabIndex = 0;
+    trigger.innerHTML = `
+        <span class="selected-text"></span>
+        <span class="arrow"></span>
+    `;
+
+    // Create options container
+    const optionsContainer = document.createElement("div");
+    optionsContainer.className = "custom-select-options";
+
+    // Create search input
+    const searchContainer = document.createElement("div");
+    searchContainer.className = "custom-select-search";
+    const searchInput = document.createElement("input");
+    searchInput.type = "text";
+    searchInput.placeholder = "Search...";
+    searchInput.addEventListener("click", (e) => e.stopPropagation());
+    searchContainer.appendChild(searchInput);
+    optionsContainer.appendChild(searchContainer);
+
+    // Create list container
+    const listContainer = document.createElement("div");
+    listContainer.className = "custom-select-list";
+    optionsContainer.appendChild(listContainer);
+
+    // Insert container before select
+    nativeSelect.parentNode.insertBefore(container, nativeSelect);
+
+    // Move select into container
+    container.appendChild(nativeSelect);
+    container.appendChild(trigger);
+    container.appendChild(optionsContainer);
+
+    nativeSelect.classList.add("replaced-by-custom");
+
+    // Event listeners
+    trigger.addEventListener("click", (e) => {
+        // Close other selects
+        document.querySelectorAll(".custom-select-container.open").forEach(el => {
+            if (el !== container) el.classList.remove("open");
+        });
+        container.classList.toggle("open");
+        if (container.classList.contains("open")) {
+            searchInput.value = "";
+            filterOptions(listContainer, "");
+            searchInput.focus();
+            highlightOption(listContainer, nativeSelect.value);
+        }
+        e.stopPropagation();
+    });
+
+    trigger.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            trigger.click();
+        }
+    });
+
+    searchInput.addEventListener("input", () => {
+        filterOptions(listContainer, searchInput.value);
+        // Highlight first visible option
+        const visible = Array.from(listContainer.querySelectorAll(".custom-option:not(.hidden)"));
+        if (visible.length > 0) {
+            setHighlight(listContainer, visible[0]);
+        }
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+        const visibleOptions = Array.from(listContainer.querySelectorAll(".custom-option:not(.hidden)"));
+        const currentIndex = visibleOptions.findIndex(opt => opt.classList.contains("highlighted"));
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const nextIndex = (currentIndex + 1) % visibleOptions.length;
+            setHighlight(listContainer, visibleOptions[nextIndex]);
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const prevIndex = (currentIndex - 1 + visibleOptions.length) % visibleOptions.length;
+            setHighlight(listContainer, visibleOptions[prevIndex]);
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (currentIndex >= 0) {
+                visibleOptions[currentIndex].click();
+            }
+        } else if (e.key === "Escape") {
+            container.classList.remove("open");
+            trigger.focus();
+        }
+    });
+}
+
+function filterOptions(container, query) {
+    const options = container.querySelectorAll(".custom-option");
+    const q = query.toLowerCase();
+    options.forEach(opt => {
+        const match = opt.textContent.toLowerCase().includes(q);
+        opt.classList.toggle("hidden", !match);
+    });
+}
+
+function setHighlight(container, option) {
+    container.querySelectorAll(".custom-option").forEach(opt => opt.classList.remove("highlighted"));
+    if (option) {
+        option.classList.add("highlighted");
+        option.scrollIntoView({ block: "nearest" });
+    }
+}
+
+function highlightOption(container, value) {
+    const option = Array.from(container.querySelectorAll(".custom-option")).find(opt => opt.dataset.value === value);
+    setHighlight(container, option);
+}
+
+function updateCustomSelect(nativeSelect) {
+    if (!nativeSelect) return;
+    let container = nativeSelect.closest(".custom-select-container");
+    if (!container) {
+        setupCustomSelect(nativeSelect);
+        container = nativeSelect.closest(".custom-select-container");
+    }
+
+    const triggerText = container.querySelector(".selected-text");
+    const listContainer = container.querySelector(".custom-select-list");
+    // const optionsContainer = container.querySelector(".custom-select-options"); // Not directly used for options manipulation here
+
+    // Update trigger text
+    const selectedOption = nativeSelect.options[nativeSelect.selectedIndex];
+    triggerText.textContent = selectedOption ? selectedOption.textContent : "";
+
+    // Rebuild options
+    if (listContainer) {
+        listContainer.innerHTML = "";
+        Array.from(nativeSelect.options).forEach((opt) => {
+            const customOpt = document.createElement("div");
+            customOpt.className = "custom-option";
+            if (opt.selected) customOpt.classList.add("selected");
+            customOpt.textContent = opt.textContent;
+            customOpt.dataset.value = opt.value;
+
+            customOpt.addEventListener("click", (e) => {
+                nativeSelect.value = opt.value;
+                // Dispatch change event
+                nativeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+                // Update UI
+                triggerText.textContent = opt.textContent;
+                container.classList.remove("open");
+
+                // Update selected class
+                listContainer.querySelectorAll(".custom-option").forEach(el => el.classList.remove("selected"));
+                customOpt.classList.add("selected");
+                e.stopPropagation();
+            });
+
+            listContainer.appendChild(customOpt);
+        });
+    }
 }
 
 function setActiveNav(currentFolderId) {
@@ -309,9 +507,9 @@ export function openPromptModal(prompt, currentFolderId, folders) {
     promptTitleInput.value = prompt?.title || "";
     promptContentInput.value = prompt?.content || "";
     promptFolderSelect.value =
-        prompt?.folderId ||
         folders.find((f) => f.id === currentFolderId && f.id !== "all")?.id ||
         "";
+    updateCustomSelect(promptFolderSelect);
     initialPromptSnapshot = captureSnapshot();
     updateSaveState();
 }
@@ -328,13 +526,32 @@ export function openEditorView(prompt) {
     editorTitleInput.value = prompt.title || "";
     editorContentInput.value = prompt.content || "";
     editorFolderSelect.value = prompt.folderId || "";
+    updateCustomSelect(editorFolderSelect);
+    editorSaveButton.textContent = "Save";
+    editorDeleteButton.classList.remove("hidden");
+    editorDeleteButton.disabled = false;
+    editorCopyButton.classList.remove("hidden");
+    editorCopyButton.disabled = false;
+    showEditorSurface();
     editorSnapshot = captureEditorSnapshot();
     updateEditorSaveState();
-    listView?.classList.add("hidden");
-    editorView?.classList.remove("hidden");
-    editorDeleteButton.disabled = false;
-    editorCopyButton.disabled = false;
-    mainContainer?.classList.add("editing");
+}
+
+export function openNewPromptView(currentFolderId, folders = []) {
+    if (editorHeading) editorHeading.textContent = "New Prompt";
+    editorForm.reset();
+    editorTitleInput.value = "";
+    editorContentInput.value = "";
+    const defaultFolderId =
+        folders.find((f) => f.id === currentFolderId && f.id !== "all")?.id || "";
+    editorFolderSelect.value = defaultFolderId;
+    updateCustomSelect(editorFolderSelect);
+    editorSaveButton.textContent = "Save";
+    editorDeleteButton.classList.add("hidden");
+    editorCopyButton.classList.add("hidden");
+    showEditorSurface();
+    editorSnapshot = captureEditorSnapshot();
+    updateEditorSaveState();
 }
 
 export function closeEditorView() {
@@ -353,6 +570,12 @@ export function showFolderConfirm() {
 export function hideFolderConfirm() {
     folderConfirmModal.classList.add("hidden");
     callbacks.onFolderConfirmClose();
+}
+
+function showEditorSurface() {
+    listView?.classList.add("hidden");
+    editorView?.classList.remove("hidden");
+    mainContainer?.classList.add("editing");
 }
 
 // Form Handling

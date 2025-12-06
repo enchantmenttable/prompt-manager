@@ -6,6 +6,7 @@ let state = createDefaultState();
 let currentFolderId = "all";
 let editingPromptId = null;
 let pendingFolderDelete = null;
+let isCreatingNew = false;
 
 async function init() {
     state = await loadState();
@@ -30,12 +31,14 @@ async function init() {
         },
         onFolderPointerDown: (e, list) => DragDrop.handleFolderPointerDown(e, list),
         isDraggingFolder: () => DragDrop.isDraggingFolder(),
-        onModalClose: () => { editingPromptId = null; },
-        onEditorClose: () => { editingPromptId = null; },
+        onModalClose: () => { editingPromptId = null; isCreatingNew = false; },
+        onEditorClose: () => { editingPromptId = null; isCreatingNew = false; },
         onFolderConfirmClose: () => { pendingFolderDelete = null; },
         onEditorDelete: () => deletePrompt(editingPromptId),
         onEditorCopy: () => copyPrompt(editingPromptId),
         onEditorSave: handleEditorSave,
+        onCopyPrompt: (id) => copyPrompt(id),
+        onNewPrompt: startNewPrompt,
     });
 
     DragDrop.initDragDrop({
@@ -47,6 +50,7 @@ async function init() {
             const prompt = state.prompts.find((item) => item.id === id);
             if (prompt) {
                 editingPromptId = prompt.id;
+                isCreatingNew = false;
                 UI.openEditorView(prompt);
             }
         }
@@ -56,12 +60,23 @@ async function init() {
     UI.renderFolders(state, currentFolderId);
     UI.renderPrompts(state, currentFolderId);
 
+    initAutoScrollbars();
+
+    // Check for deep links
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("action") === "new") {
+        startNewPrompt();
+    }
+
+    const exportBtn = document.getElementById("export-prompts");
+    if (exportBtn) {
+        exportBtn.addEventListener("click", exportPrompts);
+    }
+
     bindEvents();
 }
 
 function bindEvents() {
-    UI.newPromptButton?.addEventListener("click", () => UI.openPromptModal(null, currentFolderId, state.folders));
-
     // Drag events
     // UI.promptGrid.addEventListener("dragstart", DragDrop.handleDragStart);
     // UI.promptGrid.addEventListener("dragover", DragDrop.handleDragOver);
@@ -74,6 +89,12 @@ function bindEvents() {
 
     // Card actions
     // UI.promptGrid.addEventListener("click", handleCardActions);
+}
+
+function startNewPrompt() {
+    editingPromptId = null;
+    isCreatingNew = true;
+    UI.openNewPromptView(currentFolderId, state.folders);
 }
 
 function handleCardActions(event) {
@@ -105,6 +126,7 @@ function handleCardActions(event) {
     const prompt = state.prompts.find((item) => item.id === id);
     if (prompt) {
         editingPromptId = prompt.id;
+        isCreatingNew = false;
         UI.openEditorView(prompt);
     }
     // Click on card body is now handled by DragDrop module via onPromptClick
@@ -270,13 +292,49 @@ function reorderPromptsFromIds(ids) {
     saveState(state);
 }
 
+function initAutoScrollbars() {
+    document.addEventListener('scroll', (e) => {
+        // For window scroll, e.target is document, but we want to style body or html
+        let target = e.target;
+        if (target === document) {
+            target = document.documentElement;
+        }
+
+        if (target && target.nodeType === 1) {
+            // Cancel any pending fade or hide
+            if (target.fadeInterval) {
+                clearInterval(target.fadeInterval);
+                target.fadeInterval = null;
+            }
+            clearTimeout(target.scrollTimeout);
+
+            // Show immediately
+            target.style.setProperty('--sb-opacity', '1');
+
+            // Wait then fade
+            target.scrollTimeout = setTimeout(() => {
+                let opacity = 1;
+                target.fadeInterval = setInterval(() => {
+                    opacity -= 0.1; // 10 steps
+                    if (opacity <= 0) {
+                        opacity = 0;
+                        clearInterval(target.fadeInterval);
+                        target.fadeInterval = null;
+                    }
+                    target.style.setProperty('--sb-opacity', opacity);
+                }, 12); // 120ms total duration
+            }, 1000);
+        }
+    }, true);
+}
+
 
 function createFolder(name) {
     const exists = state.folders.some((folder) => folder.name.toLowerCase() === name.toLowerCase());
     if (exists) return;
     const id = makeId("folder");
-    const nextOrder = state.folders.filter((f) => f.id !== "all").length;
-    state.folders.push({ id, name, locked: false, order: nextOrder });
+    state.folders.push({ id, name, locked: false, order: -1 });
+    reindexFolderOrder();
     currentFolderId = id;
     saveState(state);
     UI.renderFolders(state, currentFolderId);
@@ -320,29 +378,37 @@ async function deletePrompt(id) {
 }
 
 async function handleEditorSave({ title, content, folderId }) {
+    const payload = {
+        title,
+        content,
+        folderId: folderId || undefined,
+        updatedAt: Date.now(),
+    };
+
+    if (isCreatingNew) {
+        const newPrompt = {
+            ...payload,
+            id: makeId("prompt"),
+            order: state.prompts.length,
+        };
+        state.prompts.unshift(newPrompt);
+        await saveState(state);
+        editingPromptId = newPrompt.id;
+        isCreatingNew = false;
+        UI.renderFolders(state, currentFolderId);
+        UI.renderPrompts(state, currentFolderId);
+        UI.openEditorView(newPrompt);
+        return;
+    }
+
     if (!editingPromptId) return;
     state.prompts = state.prompts.map((item) =>
-        item.id === editingPromptId
-            ? { ...item, title, content, folderId: folderId || undefined, updatedAt: Date.now() }
-            : item
+        item.id === editingPromptId ? { ...item, ...payload } : item
     );
     await saveState(state);
-    // We need to update the editor snapshot in UI, but UI handles that internally via captureEditorSnapshot if we re-open or if we just update the UI state.
-    // Actually UI.handleEditorSave calls callbacks.onEditorSave.
-    // UI doesn't automatically update its snapshot.
-    // But since we don't close the editor, we might want to signal UI to update snapshot?
-    // In the original code: editorSnapshot = captureEditorSnapshot(); updateEditorSaveState();
-    // We can't easily reach into UI to update snapshot.
-    // Maybe we should close and reopen? Or just let UI handle the snapshot update?
-    // The UI module's handleEditorSave doesn't update snapshot.
-    // Let's modify UI.js to update snapshot after callback? Or expose a way to do it.
-    // For now, let's just re-render.
     UI.renderFolders(state, currentFolderId);
     UI.renderPrompts(state, currentFolderId);
 
-    // To fix the "Save" button state (it should become disabled), we need to update the snapshot in UI.
-    // I'll assume for now the user accepts that the button might stay enabled or I'll fix UI.js later.
-    // Actually, I can just call UI.openEditorView(prompt) again with the new data?
     const updatedPrompt = state.prompts.find(p => p.id === editingPromptId);
     if (updatedPrompt) UI.openEditorView(updatedPrompt);
 }
@@ -432,3 +498,66 @@ function normalizeFolderOrder() {
 }
 
 init();
+
+async function exportPrompts() {
+    const exportBtn = document.getElementById("export-prompts");
+    if (!exportBtn) return;
+
+    const originalText = exportBtn.textContent;
+    // Use HTML for loading indicator
+    exportBtn.innerHTML = 'Please wait<span class="loading-dots"></span>';
+    exportBtn.classList.add("loading");
+
+    // Add a small delay for the animation to be seen/UI to update
+    await new Promise(r => setTimeout(r, 600));
+
+    try {
+        // Ensure JSZip is available
+        if (typeof JSZip === "undefined") {
+            throw new Error("JSZip library not loaded");
+        }
+
+        const zip = new JSZip();
+
+        state.prompts.forEach((prompt) => {
+            let filename = prompt.title || "Untitled";
+            // Simple sanitization
+            filename = filename.replace(/[\\/:*?"<>|]/g, "_") + ".md";
+            zip.file(filename, prompt.content || "");
+        });
+
+        // Generate Blob
+        const content = await zip.generateAsync({ type: "blob" });
+
+        // Date format
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        // User requested yyyy/mm/dd but slash is invalid for filename, using dashes
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        const filename = `monoprompt-export-${dateStr}.zip`;
+
+        const url = URL.createObjectURL(content);
+
+        chrome.downloads.download({
+            url: url,
+            filename: filename,
+            saveAs: true
+        }, (downloadId) => {
+            // Restore button state
+            exportBtn.textContent = originalText;
+            exportBtn.classList.remove("loading");
+
+            if (chrome.runtime.lastError) {
+                console.error(chrome.runtime.lastError);
+                // Optionally alert user or just log
+            }
+        });
+    } catch (err) {
+        console.error("Export failed", err);
+        exportBtn.textContent = originalText;
+        exportBtn.classList.remove("loading");
+        alert("Export failed: " + err.message);
+    }
+}

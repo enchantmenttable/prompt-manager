@@ -102,6 +102,11 @@ body {
     transition: transform 120ms ease, box-shadow 120ms ease, background 140ms ease, color 140ms ease;
 }
 
+.nav-item:not(.active):not(.dashed):hover {
+    box-shadow: 4px 4px 0 #888;
+    transform: translate(-2px, -2px);
+}
+
 .nav-item.active,
 .folder.active {
     background: #000;
@@ -282,6 +287,17 @@ body {
     gap: 12px;
     border-bottom: 2px solid #000;
     padding-bottom: 12px;
+    margin-left: -32px;
+    margin-right: -32px;
+    padding-left: 32px;
+    padding-right: 32px;
+    margin-top: -24px;
+    padding-top: 12px;
+    background: #fff;
+    position: relative;
+    /* Ensure it stacks correctly if needed */
+    z-index: 1;
+    /* Ensure it stays on top of any absolute elements if present */
 }
 
 .editor-title {
@@ -307,32 +323,49 @@ body {
     border: 2px solid #000;
 }
 
-.editor-form {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 40px;
-    height: 100%;
-    max-width: 66.66%;
-    margin: 0 auto;
-    width: 100%;
+#editor-back {
+    border: none;
+    width: auto;
+    height: auto;
+    padding: 8px;
+    margin-left: -8px;
+    /* Optical alignment */
 }
 
-.editor-col-left {
+#editor-back:hover {
+    background: transparent;
+    transform: scale(1.1);
+}
+
+.editor-form {
     display: flex;
     flex-direction: column;
     gap: 24px;
+    height: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 66.66%;
 }
 
-.editor-col-right {
+.editor-meta-row {
     display: flex;
-    flex-direction: column;
-    height: 100%;
+    gap: 24px;
+    width: 100%;
 }
 
-.editor-col-right .field {
-    height: 100%;
+.title-field {
+    flex: 2;
+}
+
+.folder-field {
+    flex: 1;
+}
+
+.content-field {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
 .editor-form input,
@@ -607,6 +640,49 @@ button.primary:focus-visible:not(:disabled) {
     color: #fff;
 }
 
+button.secondary {
+    background: #fff;
+    color: #000;
+}
+
+button.secondary:hover {
+    background: #000;
+    color: #fff;
+    box-shadow: none;
+    transform: none;
+}
+
+button.loading {
+    cursor: wait;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+@keyframes dots {
+
+    0%,
+    20% {
+        content: ".";
+    }
+
+    40% {
+        content: "..";
+    }
+
+    60%,
+    100% {
+        content: "...";
+    }
+}
+
+.loading-dots::after {
+    content: "";
+    animation: dots 1.5s infinite steps(1);
+    display: inline-block;
+    width: 1em;
+    text-align: left;
+}
+
 .modal {
     position: fixed;
     inset: 0;
@@ -616,6 +692,7 @@ button.primary:focus-visible:not(:disabled) {
     justify-content: center;
     padding: 20px;
     backdrop-filter: blur(1px);
+    z-index: 2000;
 }
 
 .modal-sheet {
@@ -641,6 +718,10 @@ button.primary:focus-visible:not(:disabled) {
     gap: 12px;
 }
 
+.field span {
+    font-size: 14px;
+}
+
 .field {
     display: flex;
     flex-direction: column;
@@ -657,6 +738,19 @@ select {
     font-weight: 700;
     background: #fff;
     transition: box-shadow 140ms ease;
+    font-size: 14px;
+}
+
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='14' height='10' viewBox='0 0 14 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 2l6 6 6-6' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px 10px;
+    padding-right: 38px;
+    cursor: pointer;
 }
 
 input:focus-visible,
@@ -693,6 +787,7 @@ textarea {
 
 .confirm-sheet {
     max-width: 360px;
+    box-shadow: none;
 }
 
 .confirm-body h3 {
@@ -700,7 +795,7 @@ textarea {
 }
 
 .confirm-body p {
-    margin: 0 0 16px;
+    margin: 0;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
         "Courier New", monospace;
     font-size: 14px;
@@ -715,6 +810,11 @@ textarea {
     color: #e00000;
     background: #fff;
     box-shadow: none;
+}
+
+.confirm-actions button:hover {
+    background: #000;
+    color: #fff;
 }
 
 .empty {
@@ -770,4 +870,137 @@ textarea {
     text-align: center;
     border-top: 2px solid #000;
     padding-top: 10px;
+}
+
+/* Custom Select */
+.custom-select-container {
+    position: relative;
+    width: 100%;
+    font-family: inherit;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px 8px 28px;
+    background: #fff;
+}
+
+.topbar>div {
+    display: flex;
+    gap: 12px;
+}
+
+.custom-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border: 2px solid #000;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 400;
+    user-select: none;
+    transition: box-shadow 140ms ease;
+    min-height: 42px;
+    font-size: 14px;
+}
+
+.custom-select-trigger:focus-visible {
+    outline: none;
+    box-shadow: 6px 6px 0 #888;
+}
+
+.custom-select-trigger .arrow {
+    width: 14px;
+    height: 10px;
+    background-image: url("data:image/svg+xml,%3Csvg width='14' height='10' viewBox='0 0 14 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 2l6 6 6-6' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+.custom-select-container.open .custom-select-trigger .arrow {
+    transform: rotate(180deg);
+}
+
+.custom-select-container.open .custom-select-trigger {
+    box-shadow: 6px 6px 0 #888;
+}
+
+.custom-select-options {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 2px solid #000;
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 6px 6px 0 #888;
+}
+
+.custom-select-search {
+    padding: 8px;
+
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 10;
+}
+
+.custom-select-search input {
+    width: 100%;
+    padding: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.custom-select-search input:focus {
+    box-shadow: none;
+    background: #f7f7f7;
+}
+
+.custom-select-container.open .custom-select-options {
+    display: block;
+}
+
+.custom-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-weight: 400;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.custom-option:last-child {
+    border-bottom: none;
+}
+
+.custom-option:hover,
+.custom-option.highlighted {
+    background: #000;
+    color: #fff;
+}
+
+.custom-option.selected {
+    background: #f0f0f0;
+}
+
+.custom-option.selected:hover {
+    background: #000;
+    color: #fff;
+}
+
+/* Hide the native select but keep it accessible/functional for form data if needed */
+select.replaced-by-custom {
+    display: none !important;
 }

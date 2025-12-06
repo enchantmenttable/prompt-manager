@@ -33,13 +33,13 @@ let promptDragMoved = false;
 let promptDragStartX = 0;
 let promptDragStartY = 0;
 let draggingPromptEl = null;
+let lastPromptTarget = null;
 
 export function isDraggingPrompt() {
     return !!draggingPromptId || promptDragMoved;
 }
 
 export function handlePromptPointerDown(event, promptGrid) {
-    console.log("Pointer down", event.target);
     if (event.button !== 0) return;
     if (!(event.target instanceof HTMLElement)) return;
 
@@ -49,7 +49,6 @@ export function handlePromptPointerDown(event, promptGrid) {
     const card = event.target.closest(".prompt-card");
     if (!card) return;
 
-    console.log("Card found", card.dataset.id);
 
     // Prevent default to stop native drag/selection and ensure pointer events keep firing
     event.preventDefault();
@@ -69,7 +68,7 @@ export function handlePromptPointerDown(event, promptGrid) {
     try {
         card.setPointerCapture?.(event.pointerId);
     } catch (e) {
-        console.error("Failed to capture pointer", e);
+        // Failed to capture pointer
     }
 
     const onMove = (e) => handlePromptPointerMove(e, promptGrid);
@@ -92,7 +91,6 @@ function handlePromptPointerMove(event, promptGrid) {
         if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return; // Threshold
 
         promptDragMoved = true;
-        console.log("Drag started");
 
         // Initialize drag visual state
         const cardRect = draggingPromptEl.getBoundingClientRect();
@@ -111,39 +109,102 @@ function handlePromptPointerMove(event, promptGrid) {
         draggingPromptEl.style.zIndex = "1000";
         draggingPromptEl.style.left = `${cardRect.left}px`;
         draggingPromptEl.style.top = `${cardRect.top}px`;
+        draggingPromptEl.style.pointerEvents = "none";
     }
 
-    // Update position
+    // Update position of the floating card
     draggingPromptEl.style.left = `${event.clientX - promptDragOffsetX}px`;
     draggingPromptEl.style.top = `${event.clientY - promptDragOffsetY}px`;
 
-    // Find target
-    // We need to hide the dragging element temporarily to find what's underneath,
-    // OR use elementsFromPoint and filter.
-    // Since pointer-events: none is set on .dragging in CSS, elementFromPoint should work directly.
     const target = getPromptFromPoint(event.clientX, event.clientY, promptGrid);
-
     if (!target || target === draggingPromptEl || target === promptPlaceholder) return;
 
-    // const targetRect = target.getBoundingClientRect();
-    // Determine insertion logic (grid based)
-    // Simple logic: if center of cursor is past center of target?
-    // Or just swap if we hover over it?
-    // Let's use the "insert before/after" logic based on index
+    const targetRect = target.getBoundingClientRect();
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+
+    // Logic inspired by folder drag-and-drop but adapted for grid:
+    // If we are clearly in the top part of the card -> Insert Before
+    // If we are clearly in the bottom part -> Insert After
+    // If we are in the middle -> Use Left/Right to decide
+
+    // Use a threshold to define "middle row"
+    const rowThreshold = targetRect.height / 4; // 25% top, 50% middle, 25% bottom
+
+    let insertAfter;
+    if (event.clientY < targetCenterY - rowThreshold) {
+        insertAfter = false; // Top part -> Before
+    } else if (event.clientY > targetCenterY + rowThreshold) {
+        insertAfter = true; // Bottom part -> After
+    } else {
+        insertAfter = event.clientX > targetCenterX; // Middle part -> Left/Right
+    }
 
     const children = Array.from(promptGrid.children);
     const placeholderIndex = children.indexOf(promptPlaceholder);
     const targetIndex = children.indexOf(target);
 
-    if (targetIndex > placeholderIndex) {
+    // Optimization: Don't move if we are already in the right spot relative to target
+    // Note: placeholderIndex might be -1 if not in DOM yet (though it should be)
+
+    if (insertAfter) {
+        // We want to be after target.
+        // If placeholder is already target.nextSibling, do nothing.
+        if (target.nextSibling === promptPlaceholder) return;
+    } else {
+        // We want to be before target.
+        // If placeholder is already target.previousSibling (or target is nextSibling of placeholder), do nothing.
+        if (promptPlaceholder.nextSibling === target) return;
+    }
+
+    // Capture positions BEFORE DOM change
+    const firstPositions = capturePromptPositions(promptGrid);
+
+    if (insertAfter) {
         promptGrid.insertBefore(promptPlaceholder, target.nextSibling);
     } else {
         promptGrid.insertBefore(promptPlaceholder, target);
     }
+
+    // Play animation AFTER DOM change
+    playPromptFlipAnimation(firstPositions, promptGrid);
+}
+
+// Removed findClosestPromptCard as we rely on getPromptFromPoint
+
+function capturePromptPositions(promptGrid) {
+    const positions = new Map();
+    promptGrid.querySelectorAll(".prompt-card").forEach((el) => {
+        if (el === draggingPromptEl || el.classList.contains("placeholder")) return;
+        positions.set(el.dataset.id, el.getBoundingClientRect());
+    });
+    return positions;
+}
+
+function playPromptFlipAnimation(firstPositions, promptGrid) {
+    promptGrid.querySelectorAll(".prompt-card").forEach((el) => {
+        if (el === draggingPromptEl || el.classList.contains("placeholder")) return;
+        const first = firstPositions.get(el.dataset.id);
+        if (!first) return;
+        const last = el.getBoundingClientRect();
+        const dx = first.left - last.left;
+        const dy = first.top - last.top;
+        if (!dx && !dy) return;
+
+        el.style.transition = "none";
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+
+        requestAnimationFrame(() => {
+            el.style.transition = "transform 200ms ease-out";
+            el.style.transform = "";
+            setTimeout(() => {
+                el.style.transition = "";
+            }, 200);
+        });
+    });
 }
 
 function handlePromptPointerUp(event, promptGrid) {
-    console.log("Pointer up", promptDragMoved);
     if (!draggingPromptEl) return;
     try {
         draggingPromptEl.releasePointerCapture?.(event.pointerId);
@@ -160,6 +221,7 @@ function handlePromptPointerUp(event, promptGrid) {
         draggingPromptEl.style.top = "";
         draggingPromptEl.style.zIndex = "";
         draggingPromptEl.style.cursor = "";
+        draggingPromptEl.style.pointerEvents = "";
 
         if (promptPlaceholder) {
             promptGrid.insertBefore(draggingPromptEl, promptPlaceholder);
@@ -198,6 +260,7 @@ function handlePromptPointerUp(event, promptGrid) {
     draggingPromptId = null;
     draggingPromptEl = null;
     promptDragMoved = false;
+    lastPromptTarget = null;
 }
 
 function ensurePromptPlaceholder(rect) {
@@ -209,6 +272,7 @@ function ensurePromptPlaceholder(rect) {
     // Actually, in a grid, the placeholder just needs to be an element.
     // But we should set min-height or height if needed.
     promptPlaceholder.style.height = `${rect.height}px`;
+    promptPlaceholder.style.width = `${rect.width}px`;
 }
 
 function getPromptFromPoint(x, y, promptGrid) {
@@ -217,6 +281,7 @@ function getPromptFromPoint(x, y, promptGrid) {
         const card = el.closest(".prompt-card");
         if (!card) continue;
         if (card === draggingPromptEl) continue; // Skip the card being dragged
+        if (card.classList.contains("placeholder")) continue;
         if (promptGrid.contains(card)) return card;
     }
     return null;
