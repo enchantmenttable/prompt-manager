@@ -72,7 +72,6 @@ textarea {
     text-decoration: underline;
     cursor: pointer;
     transition: color 120ms ease;
-    text-transform: lowercase;
 }
 
 .view-all-link:hover {

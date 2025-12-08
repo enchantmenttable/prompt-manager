@@ -266,7 +266,13 @@ body {
 
 .folder .delete-icon:hover,
 .folder .delete-icon:focus-visible {
-    background: #000;
+    background: transparent;
+    color: #000;
+}
+
+.folder.active .delete-icon:hover,
+.folder.active .delete-icon:focus-visible {
+    background: transparent;
     color: #fff;
 }
 

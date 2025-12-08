@@ -17,7 +17,8 @@ async function init() {
         onSearch: () => UI.renderPrompts(state, currentFolderId),
         onActivateFolder: (id) => {
             currentFolderId = id;
-            UI.renderFolders(state, currentFolderId);
+            UI.renderFolders(state, currentFolderId, editingPromptId);
+
             UI.renderPrompts(state, currentFolderId);
             DragDrop.clearFolderDragIndicators(UI.folderList);
         },
@@ -36,16 +37,19 @@ async function init() {
         onFolderConfirmClose: () => { pendingFolderDelete = null; },
         onEditorDelete: () => deletePrompt(editingPromptId),
         onEditorCopy: () => copyPrompt(editingPromptId),
-        onEditorSave: handleEditorSave,
         onCopyPrompt: (id) => copyPrompt(id),
         onNewPrompt: startNewPrompt,
+        onRenameFolder: renameFolder,
+        onRenameStart: () => UI.renderFolders(state, currentFolderId, editingPromptId),
+        onRenameCancel: () => UI.renderFolders(state, currentFolderId, editingPromptId),
+        onEditorSave: handleEditorSave,
     });
 
     DragDrop.initDragDrop({
         onPromptReorder: reorderPromptsFromIds,
         onFolderReorder: applyFolderOrderFromIds,
         onRenderPrompts: () => UI.renderPrompts(state, currentFolderId),
-        onRenderFolders: () => UI.renderFolders(state, currentFolderId),
+        onRenderFolders: () => UI.renderFolders(state, currentFolderId, editingPromptId),
         onPromptClick: (id) => {
             const prompt = state.prompts.find((item) => item.id === id);
             if (prompt) {
@@ -57,7 +61,7 @@ async function init() {
     });
 
     // Initial render
-    UI.renderFolders(state, currentFolderId);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 
     initAutoScrollbars();
@@ -330,14 +334,37 @@ function initAutoScrollbars() {
 
 
 function createFolder(name) {
-    const exists = state.folders.some((folder) => folder.name.toLowerCase() === name.toLowerCase());
+    const trimmedName = (name || "").trim();
+    if (!trimmedName) return;
+
+    const exists = state.folders.some(
+        (folder) => folder.name.toLowerCase() === trimmedName.toLowerCase()
+    );
     if (exists) return;
     const id = makeId("folder");
-    state.folders.push({ id, name, locked: false, order: -1 });
+    state.folders.push({ id, name: trimmedName, locked: false, order: -1 });
     reindexFolderOrder();
     currentFolderId = id;
     saveState(state);
-    UI.renderFolders(state, currentFolderId);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
+    UI.renderPrompts(state, currentFolderId);
+}
+
+function renameFolder(id, nextName) {
+    const name = (nextName || "").trim();
+    if (!name) return;
+
+    const folder = state.folders.find((f) => f.id === id);
+    if (!folder || folder.locked) return;
+
+    const duplicate = state.folders.some(
+        (f) => f.id !== id && f.name.toLowerCase() === name.toLowerCase()
+    );
+    if (duplicate) return;
+
+    folder.name = name;
+    saveState(state);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 }
 
@@ -354,13 +381,14 @@ async function handlePromptSubmit({ title, content, folderId }) {
             title,
             content,
             folderId: folderId || undefined,
-            order: state.prompts.length,
+            order: 0, // Will be reindexed
             updatedAt: Date.now(),
         });
+        reindexPromptOrder();
     }
     await saveState(state);
     UI.hideModal();
-    UI.renderFolders(state, currentFolderId);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 }
 
@@ -373,7 +401,7 @@ async function deletePrompt(id) {
     await saveState(state);
     UI.hideModal();
     UI.closeEditorView();
-    UI.renderFolders(state, currentFolderId);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 }
 
@@ -389,15 +417,16 @@ async function handleEditorSave({ title, content, folderId }) {
         const newPrompt = {
             ...payload,
             id: makeId("prompt"),
-            order: state.prompts.length,
+            order: 0, // Will be reindexed
         };
         state.prompts.unshift(newPrompt);
+        reindexPromptOrder();
         await saveState(state);
         editingPromptId = newPrompt.id;
         isCreatingNew = false;
-        UI.renderFolders(state, currentFolderId);
+        UI.renderFolders(state, currentFolderId, editingPromptId);
         UI.renderPrompts(state, currentFolderId);
-        UI.openEditorView(newPrompt);
+        UI.promoteEditorToExisting(newPrompt);
         return;
     }
 
@@ -406,11 +435,10 @@ async function handleEditorSave({ title, content, folderId }) {
         item.id === editingPromptId ? { ...item, ...payload } : item
     );
     await saveState(state);
-    UI.renderFolders(state, currentFolderId);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 
-    const updatedPrompt = state.prompts.find(p => p.id === editingPromptId);
-    if (updatedPrompt) UI.openEditorView(updatedPrompt);
+    // Autosaved, no need to re-open editor view
 }
 
 async function confirmDeleteFolder() {
@@ -424,7 +452,7 @@ async function confirmDeleteFolder() {
     reindexFolderOrder();
     await saveState(state);
     UI.hideFolderConfirm();
-    UI.renderFolders(state, currentFolderId);
+    UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 }
 

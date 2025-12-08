@@ -27,7 +27,15 @@
 
             <div id="list-view">
                 <header class="topbar">
-                    <h1 id="view-title">All Prompts</h1>
+                    <div class="topbar-title">
+                        <h1 id="view-title">All Prompts</h1>
+                        <button id="rename-active-folder" class="ghost icon-btn rename-btn hidden" aria-label="Rename folder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                        </button>
+                    </div>
                     <div>
                         <button id="export-prompts" class="secondary">Export</button>
                         <button id="new-prompt" class="primary">+ New</button>
@@ -44,8 +52,8 @@
             <section id="editor-view" class="editor hidden" aria-live="polite">
                 <header class="editor-top">
                     <button id="editor-back" class="ghost icon-btn" aria-label="Back to list">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                            stroke-linecap="round" stroke-linejoin="round">
                             <path d="M19 12H5" />
                             <path d="M12 19l-7-7 7-7" />
                         </svg>
@@ -53,15 +61,15 @@
                     <h2 class="editor-title">Edit Prompt</h2>
                     <div class="editor-actions">
                         <button id="editor-copy" class="ghost">Copy</button>
-                        <button id="editor-save" class="primary" disabled>Save</button>
                         <button id="editor-delete" class="ghost danger-text">Delete</button>
                     </div>
                 </header>
                 <form id="editor-form" class="editor-form">
                     <div class="editor-meta-row">
                         <label class="field title-field">
-                            <span>Title (optional)</span>
-                            <input id="editor-prompt-title" name="title" maxlength="160" spellcheck="false" />
+                            <span>Title</span>
+                            <input id="editor-prompt-title" name="title" maxlength="160" spellcheck="false"
+                                placeholder="Prompt title" />
                         </label>
                         <label class="field folder-field">
                             <span>Folder</span>
@@ -72,6 +80,7 @@
                         <span>Content</span>
                         <textarea id="editor-prompt-content" name="content" rows="10" placeholder="Write the prompt..."
                             required spellcheck="false"></textarea>
+                        <span class="autosave-msg">Changes are autosaved</span>
                     </label>
                 </form>
             </section>
@@ -122,6 +131,8 @@
             </div>
         </div>
     </div>
+
+
 
     <script type="module" src="../js/options.js"></script>
 </body>

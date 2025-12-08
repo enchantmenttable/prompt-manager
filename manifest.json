@@ -1,15 +1,20 @@
 {
     "manifest_version": 3,
     "name": "MonoPrompt",
-    "version": "0.1.0",
-    "description": "Starter template for experimenting with prompt management ideas.",
+    "version": "1.0",
+    "description": "Build your prompt collection and paste them into any chatbot conversation",
     "action": {
         "default_popup": "html/popup.html",
         "default_icon": {
-            "16": "icons/icon-16.png",
-            "32": "icons/icon-32.png",
-            "128": "icons/icon-128.png"
+            "16": "icons/icon16.png",
+            "32": "icons/icon32.png",
+            "128": "icons/icon128.png"
         }
+    },
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "128": "icons/icon128.png"
     },
     "background": {
         "service_worker": "js/background.js",

@@ -36,10 +36,19 @@ const editorSaveButton = document.getElementById("editor-save");
 const editorDeleteButton = document.getElementById("editor-delete");
 const editorCopyButton = document.getElementById("editor-copy");
 const editorHeading = document.querySelector(".editor-title");
+const renameActiveButton = document.getElementById("rename-active-folder");
+const topbarTitle = document.querySelector(".topbar-title");
+
+const autosaveIndicator = document.querySelector(".autosave-msg"); // Revert to class selector or get by ID if ID is gone
+
+// Remove unsavedModal vars
 
 let callbacks = {};
 let initialPromptSnapshot = null;
-let editorSnapshot = null;
+let renamingFolderId = null; // Track which folder is being renamed
+let titleRenameContainer = null;
+let titleRenameInput = null;
+// Remove isNewPromptMode
 
 export function initUI(cbs) {
     callbacks = cbs;
@@ -67,7 +76,6 @@ function bindStaticEvents() {
     closeModal.addEventListener("click", hideModal);
     deletePromptButton.addEventListener("click", () => callbacks.onDeletePrompt());
     promptForm.addEventListener("submit", handlePromptSubmit);
-    promptForm.addEventListener("submit", handlePromptSubmit);
     promptModal.addEventListener("click", (event) => {
         if (event.target === promptModal) hideModal();
     });
@@ -77,14 +85,15 @@ function bindStaticEvents() {
     cancelFolderDelete.addEventListener("click", hideFolderConfirm);
     confirmFolderDelete.addEventListener("click", callbacks.onConfirmDeleteFolder);
 
-    promptTitleInput.addEventListener("input", updateSaveState);
-    promptContentInput.addEventListener("input", updateSaveState);
     promptFolderSelect.addEventListener("change", updateSaveState);
 
-    editorBack?.addEventListener("click", closeEditorView);
-    editorForm?.addEventListener("input", updateEditorSaveState);
-    editorForm?.addEventListener("change", updateEditorSaveState);
-    editorSaveButton?.addEventListener("click", handleEditorSave);
+    editorBack?.addEventListener("click", () => {
+        handleEditorSave();
+        closeEditorView();
+    });
+    // Revert to simple autosave trigger
+    editorForm?.addEventListener("input", triggerAutosave);
+    editorFolderSelect?.addEventListener("change", triggerAutosave);
     editorDeleteButton?.addEventListener("click", callbacks.onEditorDelete);
     editorCopyButton?.addEventListener("click", callbacks.onEditorCopy);
 
@@ -94,62 +103,197 @@ function bindStaticEvents() {
             document.querySelectorAll(".custom-select-container.open").forEach(el => el.classList.remove("open"));
         }
     });
+
+    renameActiveButton?.addEventListener("click", () => {
+        const id = renameActiveButton.dataset.id;
+        if (!id) return;
+        startRenaming(id);
+    });
 }
 
 // Rendering
-export function renderFolders(state, currentFolderId) {
+export function renderFolders(state, currentFolderId, editingPromptId) {
     folderList.innerHTML = "";
     const folders = getOrderedFolders(state);
+    const activeFolder = state.folders.find((f) => f.id === currentFolderId);
+    let isRenamingActive = !!renamingFolderId && activeFolder?.id === renamingFolderId;
+
+    if (renamingFolderId && !isRenamingActive) {
+        renamingFolderId = null;
+        isRenamingActive = false;
+    }
 
     folders.forEach((folder) => {
-        const button = document.createElement("div");
-        button.className = `folder${folder.id === currentFolderId ? " active" : ""}`;
-        button.dataset.id = folder.id;
-        button.setAttribute("role", "button");
-        button.setAttribute("tabindex", "0");
-        button.setAttribute("draggable", "false");
-        button.draggable = false;
-        button.innerHTML = `
-      <span class="folder-name">${folder.name}</span>
-      <button class="trash" type="button" data-folder-delete="${folder.id}" aria-label="Delete folder">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 6h18" />
-          <path d="M8 6V4h8v2" />
-          <path d="M10 10v7" />
-          <path d="M14 10v7" />
-          <path d="M5 6l1 14h12l1-14" />
-        </svg>
-      </button>
-    `;
-        button.addEventListener("click", (event) => {
-            if (callbacks.isDraggingFolder()) return;
-            const target = event.target;
-            if (target instanceof HTMLElement && target.closest("[data-folder-delete]")) return;
-            callbacks.onActivateFolder(folder.id);
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = `folder ${folder.id === currentFolderId ? "active" : ""}`;
+        item.dataset.id = folder.id;
+
+        item.innerHTML = `
+            <span class="folder-name">${escapeHtml(folder.name)}</span>
+            <span class="folder-actions">
+                <span class="delete-icon danger-text" title="Delete Folder">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2-2v2"></path></svg>
+                </span>
+            </span>
+        `;
+
+        item.addEventListener("click", () => callbacks.onActivateFolder(folder.id));
+        item.addEventListener("pointerdown", (e) => {
+            if (e.target.closest(".folder-actions")) return;
+            callbacks.onFolderPointerDown(e, folderList);
         });
-        const trashBtn = button.querySelector("[data-folder-delete]");
-        trashBtn?.setAttribute("draggable", "false");
-        trashBtn?.addEventListener("click", (event) => {
-            event.stopPropagation();
+        item.querySelector(".delete-icon").addEventListener("click", (e) => {
+            e.stopPropagation();
             callbacks.onRequestDeleteFolder(folder.id);
         });
-        button.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                callbacks.onActivateFolder(folder.id);
-            }
-        });
 
-        // Drag events are attached in options.js or via delegation, but here we need to attach pointerdown
-        button.addEventListener("pointerdown", (e) => callbacks.onFolderPointerDown(e, folderList));
-
-        folderList.appendChild(button);
+        folderList.appendChild(item);
     });
 
-    viewTitle.textContent =
-        (folders.find((f) => f.id === currentFolderId)?.name || "All Prompts").toUpperCase();
-    renderFolderSelect(state);
+    updateTitleArea(activeFolder, isRenamingActive);
+    renderFolderSelect(state, editingPromptId);
     setActiveNav(currentFolderId);
+    syncFolderHeightToNav();
+}
+
+function updateTitleArea(activeFolder, isRenamingActive) {
+    const name = activeFolder?.name || "All Prompts";
+
+    if (isRenamingActive) {
+        showTitleRename(name);
+    } else {
+        hideTitleRename();
+        if (viewTitle) {
+            viewTitle.textContent = name.toUpperCase();
+        }
+    }
+
+    if (renameActiveButton) {
+        const canRename = !!activeFolder && !activeFolder.locked && activeFolder.id !== "all";
+        renameActiveButton.dataset.id = canRename ? activeFolder.id : "";
+        renameActiveButton.dataset.name = canRename ? activeFolder.name : "";
+        renameActiveButton.classList.toggle("hidden", !canRename || isRenamingActive);
+        renameActiveButton.disabled = !canRename || isRenamingActive;
+    }
+}
+
+function ensureTitleRenameUI() {
+    if (titleRenameContainer || !topbarTitle) return;
+
+    titleRenameContainer = document.createElement("div");
+    titleRenameContainer.className = "title-rename hidden";
+    titleRenameContainer.innerHTML = `
+        <input type="text" class="title-rename-input" spellcheck="false" aria-label="Rename folder">
+        <div class="title-rename-actions">
+            <button class="folder-edit-btn save-rename" title="Save" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </button>
+            <button class="folder-edit-btn cancel-rename" title="Cancel" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+    `;
+
+    topbarTitle.insertBefore(titleRenameContainer, renameActiveButton || null);
+    titleRenameInput = titleRenameContainer.querySelector(".title-rename-input");
+    const saveBtn = titleRenameContainer.querySelector(".save-rename");
+    const cancelBtn = titleRenameContainer.querySelector(".cancel-rename");
+
+    const submit = () => handleRenameSave(renamingFolderId, titleRenameInput.value);
+
+    titleRenameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancelRenaming();
+        }
+    });
+    titleRenameInput.addEventListener("pointerdown", (e) => e.stopPropagation());
+    titleRenameInput.addEventListener("click", (e) => e.stopPropagation());
+
+    saveBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        submit();
+    });
+
+    cancelBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelRenaming();
+    });
+}
+
+function focusTitleRenameInput() {
+    if (!titleRenameInput || titleRenameContainer?.classList.contains("hidden")) return;
+    titleRenameInput.focus();
+    titleRenameInput.select();
+}
+
+function showTitleRename(currentName) {
+    ensureTitleRenameUI();
+    if (!titleRenameContainer || !titleRenameInput) return;
+    if (viewTitle) {
+        viewTitle.classList.add("hidden");
+    }
+    topbarTitle?.classList.add("renaming-title");
+    titleRenameContainer.classList.remove("hidden");
+    titleRenameInput.value = currentName || "";
+    requestAnimationFrame(focusTitleRenameInput);
+}
+
+function hideTitleRename() {
+    if (viewTitle) {
+        viewTitle.classList.remove("hidden");
+    }
+    topbarTitle?.classList.remove("renaming-title");
+    if (titleRenameContainer) {
+        titleRenameContainer.classList.add("hidden");
+    }
+}
+
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function startRenaming(folderId) {
+    renamingFolderId = folderId;
+    callbacks.onRenameStart?.();
+    requestAnimationFrame(() => {
+        focusTitleRenameInput();
+    });
+}
+
+function cancelRenaming() {
+    renamingFolderId = null;
+    callbacks.onRenameCancel?.();
+}
+
+function handleRenameSave(folderId, rawName) {
+    const name = (rawName || "").trim();
+    if (!name) {
+        cancelRenaming();
+        return;
+    }
+    renamingFolderId = null;
+    callbacks.onRenameFolder?.(folderId, name);
+}
+
+function syncFolderHeightToNav() {
+    const nav = document.querySelector('.nav-item[data-id="all"]') || document.querySelector('.nav-item');
+    if (!nav) return;
+    const { height } = nav.getBoundingClientRect();
+    if (height > 0) {
+        document.documentElement.style.setProperty("--folder-height", `${Math.round(height)}px`);
+    }
 }
 
 function getOrderedFolders(state) {
@@ -522,19 +666,22 @@ export function hideModal() {
 }
 
 export function openEditorView(prompt) {
-    if (editorHeading) editorHeading.textContent = "Edit Prompt";
+    editorHeading.textContent = "Edit Prompt";
     editorTitleInput.value = prompt.title || "";
     editorContentInput.value = prompt.content || "";
     editorFolderSelect.value = prompt.folderId || "";
     updateCustomSelect(editorFolderSelect);
-    editorSaveButton.textContent = "Save";
+
+    // isNewPromptMode = false; // logic removed
+    // editorSaveButton removed
+    if (autosaveIndicator) autosaveIndicator.classList.remove("hidden");
+
     editorDeleteButton.classList.remove("hidden");
     editorDeleteButton.disabled = false;
     editorCopyButton.classList.remove("hidden");
     editorCopyButton.disabled = false;
     showEditorSurface();
-    editorSnapshot = captureEditorSnapshot();
-    updateEditorSaveState();
+    initialPromptSnapshot = null;
 }
 
 export function openNewPromptView(currentFolderId, folders = []) {
@@ -546,16 +693,20 @@ export function openNewPromptView(currentFolderId, folders = []) {
         folders.find((f) => f.id === currentFolderId && f.id !== "all")?.id || "";
     editorFolderSelect.value = defaultFolderId;
     updateCustomSelect(editorFolderSelect);
-    editorSaveButton.textContent = "Save";
+
+    // isNewPromptMode = true; // logic removed
+    // save button logic removed
+    if (autosaveIndicator) autosaveIndicator.classList.remove("hidden"); // Autosave IS active
+
     editorDeleteButton.classList.add("hidden");
     editorCopyButton.classList.add("hidden");
     showEditorSurface();
-    editorSnapshot = captureEditorSnapshot();
-    updateEditorSaveState();
+
+    initialPromptSnapshot = null; // No snapshot needed for modal
 }
 
 export function closeEditorView() {
-    editorSnapshot = null;
+    initialPromptSnapshot = null;
     editorForm.reset();
     editorView?.classList.add("hidden");
     listView?.classList.remove("hidden");
@@ -572,11 +723,28 @@ export function hideFolderConfirm() {
     callbacks.onFolderConfirmClose();
 }
 
+// remove hasUnsavedChanges
+
 function showEditorSurface() {
     listView?.classList.add("hidden");
     editorView?.classList.remove("hidden");
     mainContainer?.classList.add("editing");
 }
+
+
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+const triggerAutosave = debounce(() => {
+    handleEditorSave();
+}, 800);
+
+// remove updateEditorSaveState
 
 // Form Handling
 function captureSnapshot() {
@@ -617,26 +785,28 @@ function captureEditorSnapshot() {
     };
 }
 
-function updateEditorSaveState() {
-    if (!editorSaveButton) return;
-    const snapshot = captureEditorSnapshot();
-    const changed =
-        !editorSnapshot ||
-        snapshot.title !== editorSnapshot.title ||
-        snapshot.content !== editorSnapshot.content ||
-        snapshot.folderId !== editorSnapshot.folderId;
-    const hasContent = snapshot.content.length > 0;
-    editorSaveButton.disabled = !(changed && hasContent);
-}
-
-function handleEditorSave(event) {
-    event.preventDefault();
-    if (editorSaveButton.disabled) return;
+function handleEditorSave() {
     const title = editorTitleInput.value.trim();
     const content = editorContentInput.value.trim();
     const folderId = editorFolderSelect.value;
+
+    // User requested: if no content, don't create new prompt.
+    // If it's empty content for existing prompt, we allow saving empty? 
+    // Or normally we require content. The previous code check `if (!content) return` prevents empty saves.
     if (!content) return;
+
     callbacks.onEditorSave({ title, content, folderId });
+}
+
+export function promoteEditorToExisting(prompt) {
+    if (editorHeading) editorHeading.textContent = "Edit Prompt";
+    editorDeleteButton.classList.remove("hidden");
+    editorDeleteButton.disabled = false;
+    editorCopyButton.classList.remove("hidden");
+    editorCopyButton.disabled = false;
+
+    // No more mode transition needed
+    // But we might want to update the UI slightly to reflect it's now an existing prompt (though it looks same)
 }
 
 export function updateCopyButton(id, text) {
