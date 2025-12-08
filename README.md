@@ -1,4 +1,4 @@
 Build your prompt collection and paste them into any chatbot conversation.
 
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/a441a260-a3f4-4288-87b9-0d0eadc81c2c" />
-<img width="75%" alt="image" src="https://github.com/user-attachments/assets/ca78fd6c-0794-47dd-b52c-47482499d9c7" />
+<img width="75%" alt="image" src="https://github.com/user-attachments/assets/e93538ac-8e58-4b2b-a314-c6b96538b922" />
