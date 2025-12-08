@@ -292,24 +292,26 @@ body {
 }
 
 .rename-btn {
-    --rename-btn-size: 44px;
+    --rename-btn-size: 36px;
     width: var(--rename-btn-size);
     height: var(--rename-btn-size);
-    padding: 10px 12px;
+    padding: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 140ms ease;
+    transition: background 140ms ease, color 140ms ease, opacity 140ms ease, visibility 0s linear 140ms;
+    pointer-events: none;
     border: none;
     box-shadow: none;
     background: transparent;
 }
 
 .rename-btn svg {
-    width: 18px;
-    height: 18px;
+    display: block;
+    width: 16px;
+    height: 16px;
 }
 
 .topbar-title:hover .rename-btn,
@@ -317,6 +319,8 @@ body {
 .rename-btn:focus-visible {
     opacity: 1;
     visibility: visible;
+    transition: background 140ms ease, color 140ms ease, opacity 140ms ease, visibility 0s linear 0s;
+    pointer-events: auto;
 }
 
 .title-rename {
@@ -1130,4 +1134,9 @@ textarea {
 /* Hide the native select but keep it accessible/functional for form data if needed */
 select.replaced-by-custom {
     display: none !important;
+}
+
+.edit-name-btn {
+    height: 39px !important;
+    width: 39px !important;
 }

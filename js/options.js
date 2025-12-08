@@ -394,8 +394,6 @@ async function handlePromptSubmit({ title, content, folderId }) {
 
 async function deletePrompt(id) {
     if (!id) return;
-    const confirmed = confirm("Delete this prompt?");
-    if (!confirmed) return;
     state.prompts = state.prompts.filter((item) => item.id !== id);
     reindexPromptOrder();
     await saveState(state);

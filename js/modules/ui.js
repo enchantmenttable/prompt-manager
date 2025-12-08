@@ -12,6 +12,9 @@ const navAllButton = document.querySelector('.nav-item[data-id="all"]');
 const folderConfirmModal = document.getElementById("folder-confirm");
 const cancelFolderDelete = document.getElementById("cancel-folder-delete");
 const confirmFolderDelete = document.getElementById("confirm-folder-delete");
+const promptConfirmModal = document.getElementById("prompt-confirm");
+const cancelPromptDelete = document.getElementById("cancel-prompt-delete");
+const confirmPromptDelete = document.getElementById("confirm-prompt-delete");
 
 const promptModal = document.getElementById("prompt-modal");
 const promptForm = document.getElementById("prompt-form");
@@ -48,6 +51,7 @@ let initialPromptSnapshot = null;
 let renamingFolderId = null; // Track which folder is being renamed
 let titleRenameContainer = null;
 let titleRenameInput = null;
+let pendingPromptDeleteAction = null;
 // Remove isNewPromptMode
 
 export function initUI(cbs) {
@@ -74,7 +78,11 @@ function bindStaticEvents() {
     });
     cancelModal.addEventListener("click", hideModal);
     closeModal.addEventListener("click", hideModal);
-    deletePromptButton.addEventListener("click", () => callbacks.onDeletePrompt());
+    deletePromptButton.addEventListener("click", () => {
+        if (!callbacks.onDeletePrompt) return;
+        pendingPromptDeleteAction = callbacks.onDeletePrompt;
+        showPromptConfirm();
+    });
     promptForm.addEventListener("submit", handlePromptSubmit);
     promptModal.addEventListener("click", (event) => {
         if (event.target === promptModal) hideModal();
@@ -84,6 +92,15 @@ function bindStaticEvents() {
     });
     cancelFolderDelete.addEventListener("click", hideFolderConfirm);
     confirmFolderDelete.addEventListener("click", callbacks.onConfirmDeleteFolder);
+    promptConfirmModal?.addEventListener("click", (event) => {
+        if (event.target === promptConfirmModal) hidePromptConfirm();
+    });
+    cancelPromptDelete?.addEventListener("click", hidePromptConfirm);
+    confirmPromptDelete?.addEventListener("click", () => {
+        const action = pendingPromptDeleteAction;
+        hidePromptConfirm();
+        action?.();
+    });
 
     promptFolderSelect.addEventListener("change", updateSaveState);
 
@@ -94,7 +111,11 @@ function bindStaticEvents() {
     // Revert to simple autosave trigger
     editorForm?.addEventListener("input", triggerAutosave);
     editorFolderSelect?.addEventListener("change", triggerAutosave);
-    editorDeleteButton?.addEventListener("click", callbacks.onEditorDelete);
+    editorDeleteButton?.addEventListener("click", () => {
+        if (!callbacks.onEditorDelete) return;
+        pendingPromptDeleteAction = callbacks.onEditorDelete;
+        showPromptConfirm();
+    });
     editorCopyButton?.addEventListener("click", callbacks.onEditorCopy);
 
     // Close custom selects when clicking outside
@@ -723,6 +744,15 @@ export function hideFolderConfirm() {
     callbacks.onFolderConfirmClose();
 }
 
+export function showPromptConfirm() {
+    promptConfirmModal?.classList.remove("hidden");
+}
+
+export function hidePromptConfirm() {
+    promptConfirmModal?.classList.add("hidden");
+    pendingPromptDeleteAction = null;
+}
+
 // remove hasUnsavedChanges
 
 function showEditorSurface() {
@@ -799,14 +829,7 @@ function handleEditorSave() {
 }
 
 export function promoteEditorToExisting(prompt) {
-    if (editorHeading) editorHeading.textContent = "Edit Prompt";
-    editorDeleteButton.classList.remove("hidden");
-    editorDeleteButton.disabled = false;
-    editorCopyButton.classList.remove("hidden");
-    editorCopyButton.disabled = false;
-
-    // No more mode transition needed
-    // But we might want to update the UI slightly to reflect it's now an existing prompt (though it looks same)
+    // Keep UI in "new" state until user navigates back and reopens; buttons stay hidden for this session.
 }
 
 export function updateCopyButton(id, text) {
