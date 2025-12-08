@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "MonoPrompt",
+    "name": "MonoPrompt - Prompt Manager",
     "version": "0.9",
     "description": "Build your prompt collection and paste them into any chatbot conversation",
     "action": {
