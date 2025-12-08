@@ -179,6 +179,7 @@ body {
     text-align: left;
     user-select: none;
     -webkit-user-select: none;
+    min-height: var(--folder-height, auto);
 }
 
 .folder.dragging {
@@ -234,27 +235,39 @@ body {
     transform: translate(-2px, -2px);
 }
 
-.folder .trash {
-    background: none;
-    border: none;
-    padding: 0;
-    margin-left: 8px;
-    opacity: 0;
-    transition: opacity 120ms ease;
+.folder-actions {
     display: flex;
     align-items: center;
-    cursor: pointer;
-    box-shadow: none;
+    gap: 10px;
+    width: 24px;
+    justify-content: flex-end;
 }
 
-.folder .trash svg {
+.folder .delete-icon {
+    border: none;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    color: #000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease, background 140ms ease, color 140ms ease;
+}
+.folder .delete-icon svg {
     width: 16px;
     height: 16px;
 }
 
-.folder:hover .trash,
-.folder .trash:focus-visible {
+.folder:hover .delete-icon,
+.folder:focus-within .delete-icon {
     opacity: 1;
+    visibility: visible;
+}
+
+.folder .delete-icon:hover,
+.folder .delete-icon:focus-visible {
+    background: #000;
+    color: #fff;
 }
 
 .topbar {
@@ -263,6 +276,86 @@ body {
     justify-content: space-between;
     padding: 16px 28px 8px;
     background: #fff;
+}
+
+.topbar-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.rename-btn {
+    --rename-btn-size: 44px;
+    width: var(--rename-btn-size);
+    height: var(--rename-btn-size);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 140ms ease;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+}
+
+.rename-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.topbar-title:hover .rename-btn,
+.topbar-title:focus-within .rename-btn,
+.rename-btn:focus-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.title-rename {
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+.topbar-title.renaming-title #view-title {
+    display: none;
+}
+
+.topbar-title.renaming-title .title-rename {
+    display: flex;
+}
+
+.title-rename-input {
+    border: 2px solid #000;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 0.01em;
+    background: #fff;
+    min-width: 200px;
+}
+
+.title-rename-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.folder-edit-btn {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    padding: 6px;
+    background: #fff;
+}
+
+.folder-edit-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 .editing #list-view {
@@ -324,17 +417,29 @@ body {
 }
 
 #editor-back {
-    border: none;
-    width: auto;
-    height: auto;
-    padding: 8px;
-    margin-left: -8px;
-    /* Optical alignment */
+    border: 2px solid #000;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    margin-left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    transition: background 140ms ease, color 140ms ease;
+}
+
+#editor-back svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.5;
 }
 
 #editor-back:hover {
-    background: transparent;
-    transform: scale(1.1);
+    background: #000;
+    color: #fff;
+    transform: none;
+    box-shadow: none;
 }
 
 .editor-form {
@@ -379,6 +484,13 @@ body {
     flex: 1;
     min-height: 500px;
     resize: none;
+}
+
+.autosave-msg {
+    font-size: 12px;
+    color: #888;
+    margin-top: 6px;
+    font-weight: 400;
 }
 
 .danger-text {
@@ -620,6 +732,14 @@ button.primary {
 button.danger {
     border-color: #000;
     color: #000;
+}
+
+button.ghost:hover,
+button.danger:hover {
+    background: #000;
+    color: #fff;
+    box-shadow: none;
+    transform: none;
 }
 
 button:active {
@@ -992,7 +1112,8 @@ textarea {
 }
 
 .custom-option.selected {
-    background: #f0f0f0;
+    background: #444;
+    color: #fff;
 }
 
 .custom-option.selected:hover {
