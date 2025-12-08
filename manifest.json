@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "MonoPrompt",
-    "version": "1.0",
+    "version": "0.9",
     "description": "Build your prompt collection and paste them into any chatbot conversation",
     "action": {
         "default_popup": "html/popup.html",
