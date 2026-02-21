@@ -1,4 +1,4 @@
 meta/
 .claude/
 releases/
-.DS_store
+*.DS_Store
