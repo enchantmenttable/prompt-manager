@@ -1,4 +1,5 @@
 import { createDefaultState, loadState, makeId, saveState } from "./storage.js";
+import { trackEvent } from "./analytics.js";
 import * as UI from "./modules/ui.js";
 import * as DragDrop from "./modules/drag-drop.js";
 
@@ -346,6 +347,7 @@ function createFolder(name) {
     reindexFolderOrder();
     currentFolderId = id;
     saveState(state);
+    trackEvent("folder_create");
     UI.renderFolders(state, currentFolderId, editingPromptId);
     UI.renderPrompts(state, currentFolderId);
 }
@@ -375,6 +377,7 @@ async function handlePromptSubmit({ title, content, folderId }) {
                 ? { ...item, title, content, folderId: folderId || undefined, updatedAt: Date.now() }
                 : item
         );
+        trackEvent("prompt_edit", { source: "options" });
     } else {
         state.prompts.unshift({
             id: makeId("prompt"),
@@ -385,6 +388,7 @@ async function handlePromptSubmit({ title, content, folderId }) {
             updatedAt: Date.now(),
         });
         reindexPromptOrder();
+        trackEvent("prompt_create", { source: "options" });
     }
     await saveState(state);
     UI.hideModal();
@@ -397,6 +401,7 @@ async function deletePrompt(id) {
     state.prompts = state.prompts.filter((item) => item.id !== id);
     reindexPromptOrder();
     await saveState(state);
+    trackEvent("prompt_delete");
     UI.hideModal();
     UI.closeEditorView();
     UI.renderFolders(state, currentFolderId, editingPromptId);
@@ -420,6 +425,7 @@ async function handleEditorSave({ title, content, folderId }) {
         state.prompts.unshift(newPrompt);
         reindexPromptOrder();
         await saveState(state);
+        trackEvent("prompt_create", { source: "options" });
         editingPromptId = newPrompt.id;
         isCreatingNew = false;
         UI.renderFolders(state, currentFolderId, editingPromptId);
@@ -459,6 +465,7 @@ function copyPrompt(id) {
     if (!prompt) return;
     UI.updateCopyButton(id, "Copied");
     navigator.clipboard?.writeText(prompt.content);
+    trackEvent("prompt_copy", { source: "options" });
 }
 
 

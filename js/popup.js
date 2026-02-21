@@ -1,4 +1,5 @@
 import { loadState, saveState, makeId } from "./storage.js";
+import { trackEvent } from "./analytics.js";
 
 let state = { folders: [], prompts: [] };
 let selectedFolderId = null;
@@ -21,6 +22,7 @@ const cancelBtn = document.getElementById("cancel-new");
 
 async function init() {
     state = await loadState();
+    trackEvent("popup_open");
     renderPrompts();
     searchInput.addEventListener("input", renderPrompts);
 
@@ -156,6 +158,7 @@ async function handleSave() {
 
     state.prompts.unshift(newPrompt); // Add to top of list
     await saveState(state);
+    trackEvent("prompt_create", { source: "popup" });
 
     showListView();
     renderPrompts();
@@ -213,6 +216,7 @@ function renderPrompts() {
             e.stopPropagation();
             copyBtn.textContent = "COPIED";
             navigator.clipboard.writeText(prompt.content).then(() => showToast("Copied"));
+            trackEvent("prompt_copy", { source: "popup" });
         });
 
         // Reset on mouseleave (blur only)

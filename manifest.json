@@ -24,6 +24,6 @@
         "storage",
         "downloads"
     ],
-    "host_permissions": [],
+    "host_permissions": ["https://www.google-analytics.com/"],
     "options_page": "html/options.html"
 }
